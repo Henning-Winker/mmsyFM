@@ -13,6 +13,7 @@ plot_kobe(
   Ftgt = 1,
   Bclose = Blim,
   zones = c("hcr", "simple"),
+  palette = c("pastel", "flref"),
   alpha = 1
 )
 }
@@ -28,6 +29,9 @@ plot_kobe(
 biomass at which F reaches zero (default \code{Blim}, as in \code{\link[=hcr_effort]{hcr_effort()}}).}
 
 \item{zones}{\code{"hcr"} (coloured zones and the HCR line) or \code{"simple"}.}
+
+\item{palette}{zone colours: \code{"pastel"} (default) or \code{"flref"} (the
+saturated colours of \code{FLRef::plotWKREF()}).}
 
 \item{alpha}{opacity of the zones.}
 }

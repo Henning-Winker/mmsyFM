@@ -25,28 +25,68 @@ proc_args <- function(input, sys) list(
   proc_dep = if (input$proc_dep) "jabba" else "none",
   proc_center = input$proc_center, rho = input$proc_rho)
 
+tips <- list(
+  preset = "A ready-made system, or upload your own four tables: species, metiers, catchability and segments.",
+  season_amp = "How much fishing days vary over the year: 0 = the same every month, 0.3 = plus or minus 30%, peaking in July.",
+  capacity = "Registered fleet capacity: the most days each segment could fish in a year. The days actually fished are those of the vessels that break even, so they can be fewer.",
+  gamma = "0 = days spread evenly over the metiers, whatever they pay. Higher = days concentrate on the metiers with the best expected profit per day.",
+  tune_min = "Target status of the weakest stock at open access. Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
+  yc_treat = "<b>Shared q (mse.SEA)</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
+  opt_obj = "What is maximised at equilibrium: <b>yield</b> (total catch), <b>revenue</b> (catch x price) or <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY).",
+  opt_levers = "<b>One global cap</b>: a single limit on total days, split equally across segments.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
+  opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
+  opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
+  hs_btrig = "When an assessed stock falls below this B/Bmsy, the days of the segments that catch it are cut: full days at the trigger, a linear ramp down to zero at Blim (0.25 Bmsy). The most depleted stock a segment catches sets its cut.",
+  hs_btrig_close = "For the closure stock: the metiers that drive it are closed for a share of the time that ramps from 0 at this trigger to fully closed at Blim. It replaces the effort rule for that stock.",
+  hs_maxchange = "Largest change in a segment's days from one year to the next (0.2 = plus or minus 20%). 1 = no limit.",
+  hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
+  hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
+  hs_impl = "Implementation error: the days fished differ from the days allowed by a lognormal error with this CV.",
+  hs_effort = "Year-to-year noise in fishing effort and catch rates by segment (autocorrelated), in every run, regulated or not.",
+  proc_scale = "Process error on stock growth, as a multiple of the default SD, which increases with r (about 0.05 for sharks, 0.4 for anchovy).",
+  proc_dep = "JABBA proc.dyn: process error increases at low biomass (about 1.5x at 0.5 Bmsy, 4x at 0.05 Bmsy), so depleted stocks fluctuate more.",
+  proc_center = "<b>median</b>: no drift, as JABBA's dlnorm; depleted stocks can bounce back.<br><b>mean</b>: mean-unbiased, so the median drifts down when the SD is large (stochastic depensation).",
+  proc_rho = "Autocorrelation of process error between years: 0 = independent years; higher = runs of good and bad years.",
+  hs_nsim = "Number of stochastic replicates.",
+  hs_years = "Years projected from the status quo.",
+  tu_eff = "Range of effort triggers (B/Bmsy) to try, in steps of 0.1.",
+  tu_close = "Closure triggers (B/Bmsy) to try for the closure stock set in tab 5.",
+  tu_risk = "Highest acceptable probability that the worst stock is below Bpa over the evaluation years. The trigger with the best yield that meets it is chosen.",
+  tu_nsim = "Replicates per trigger. The same random numbers are used for every trigger, so differences between triggers are not noise.",
+  share = "Target share of all days fished by this segment at open access. Tuning adjusts the daily costs until the fleet settles at these shares.",
+  days = "Days fished by this segment in the scenario (its cap). Fewer are used if the vessels don't break even.",
+  open_m = "Untick to close a metier all year. Its days move to the open metiers by profit (displacement).",
+  yc_close_m = "Used only by the 'Profit-seeking + closure' curve: this one metier is closed all year and its days move to the other metiers. The other curves keep every metier open.",
+  opt_closed = "Metiers kept closed all year during the optimisation, e.g. a protected reef.",
+  hs_close_s = "A choke stock protected by a closure of the metiers that drive it. 'none' = effort rule only.")
+info <- function(id, label) tagList(label, tags$span(class = "info", `data-toggle` = "tooltip",
+  `data-placement` = "right", `data-html` = "true", title = tips[[id]], HTML("&#9432;")))
+
 ui <- navbarPage(
   "mmsyFM", id = "tabs",
   header = tags$head(tags$style(HTML(
     "body { font-size: 14px; } .well { background: #f7f7f5; } h4 { margin-top: 18px; }
-     .note { color: #52514e; font-size: 13px; }"))),
+     .note { color: #52514e; font-size: 13px; }
+     .info { color: #2a5db0; cursor: help; margin-left: 5px; font-weight: normal; }
+     .tooltip-inner { max-width: 340px; text-align: left; font-size: 13px; padding: 8px 10px; }")),
+    tags$script(HTML("$(function() { $('body').tooltip({ selector: '[data-toggle=\\'tooltip\\']', container: 'body' }); });"))),
 
   # ---- 1. Set-up -------------------------------------------------------------
   tabPanel("1. Set-up",
     sidebarLayout(
       sidebarPanel(width = 3,
-        selectInput("preset", "System", c("Atlantic example" = "atlantic", "Upload tables" = "upload")),
+        selectInput("preset", info("preset", "System"), c("Atlantic example" = "atlantic", "Upload tables" = "upload")),
         conditionalPanel("input.preset == 'upload'",
           fileInput("f_species", "species.csv"), fileInput("f_metiers", "metiers.csv"),
           fileInput("f_q", "catchability.csv"), fileInput("f_segments", "segments.csv"),
-          numericInput("season_amp", "Effort seasonality", 0, 0, 1, 0.1)),
-        numericInput("capacity", "Capacity (days per segment)", 1000, 1, step = 100),
-        sliderInput("gamma", "How strongly fishers chase profit", 0, 3, 1.5, 0.25),
+          numericInput("season_amp", info("season_amp", "Effort seasonality"), 0, 0, 1, 0.1)),
+        numericInput("capacity", info("capacity", "Capacity (days per segment)"), 1000, 1, step = 100),
+        sliderInput("gamma", info("gamma", "How strongly fishers chase profit"), 0, 3, 1.5, 0.25),
         uiOutput("gamma_help"),
         hr(),
         h5("Tune the status quo (open access)"),
         uiOutput("share_inputs"),
-        numericInput("tune_min", "Weakest stock at open access (B/Bmsy)", 0.4, 0.05, 1.5, 0.05),
+        numericInput("tune_min", info("tune_min", "Weakest stock at open access (B/Bmsy)"), 0.4, 0.05, 1.5, 0.05),
         actionButton("tune", "Tune daily costs", class = "btn-primary"),
         p(class = "note", "Tuning solves the daily cost of each segment (about 45 s).")),
       mainPanel(width = 9,
@@ -73,7 +113,7 @@ ui <- navbarPage(
   tabPanel("3. Yield curves",
     sidebarLayout(
       sidebarPanel(width = 3,
-        checkboxGroupInput("yc_treat", "Treatments",
+        checkboxGroupInput("yc_treat", info("yc_treat", "Treatments"),
           c("Shared q (mse.SEA)" = "sharedq", "Metiers, profit-blind" = "blind",
             "Metiers, profit-seeking" = "seek", "Profit-seeking + closure" = "closed"),
           c("sharedq", "seek", "closed")),
@@ -86,10 +126,10 @@ ui <- navbarPage(
   tabPanel("4. Safeguarded MMSY",
     sidebarLayout(
       sidebarPanel(width = 3,
-        selectInput("opt_obj", "Objective", c("yield", "revenue", "profit")),
-        radioButtons("opt_levers", "Levers", c("One global cap" = "total", "Cap by segment" = "segments")),
-        sliderInput("opt_minshare", "Viability floor (minimum share per segment)", 0, 0.33, 0, 0.01),
-        numericInput("opt_bpa", "Safeguard Bpa (B/Bmsy)", 0.5, 0.1, 1, 0.05),
+        selectInput("opt_obj", info("opt_obj", "Objective"), c("yield", "revenue", "profit")),
+        radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments")),
+        sliderInput("opt_minshare", info("opt_minshare", "Viability floor (minimum share per segment)"), 0, 0.33, 0, 0.01),
+        numericInput("opt_bpa", info("opt_bpa", "Safeguard Bpa (B/Bmsy)"), 0.5, 0.1, 1, 0.05),
         uiOutput("opt_close"),
         actionButton("run_opt", "Optimise", class = "btn-primary"),
         p(class = "note", "One cap: about 10 s; caps by segment: about 1 min.")),
@@ -100,22 +140,22 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(width = 3,
         h5("Rule"),
-        sliderInput("hs_btrig", "Effort trigger (B/Bmsy)", 0.3, 1.5, 0.6, 0.05),
+        sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.6, 0.05),
         uiOutput("hs_close"),
-        sliderInput("hs_btrig_close", "Closure trigger (B/Bmsy)", 0.5, 5, 3, 0.25),
-        sliderInput("hs_maxchange", "Maximum annual change (Inf = none)", 0.05, 1, 1, 0.05),
+        sliderInput("hs_btrig_close", info("hs_btrig_close", "Closure trigger (B/Bmsy)"), 0.5, 5, 3, 0.25),
+        sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change (Inf = none)"), 0.05, 1, 1, 0.05),
         h5("Uncertainty"),
-        sliderInput("hs_lag", "Data lag (years)", 0, 3, 2, 1),
-        sliderInput("hs_assess", "Assessment error CV", 0, 0.5, 0.2, 0.05),
-        sliderInput("hs_impl", "Implementation error CV", 0, 0.5, 0.1, 0.05),
-        sliderInput("hs_effort", "Effort noise CV", 0, 0.5, 0.1, 0.05),
-        sliderInput("proc_scale", "Process SD (x r-based default)", 0, 2, 1, 0.1),
-        checkboxInput("proc_dep", "JABBA proc.dyn (volatile at low B)", TRUE),
-        radioButtons("proc_center", "Process error centred on", c("median", "mean"), inline = TRUE),
-        sliderInput("proc_rho", "Process AR(1)", 0, 0.9, 0.3, 0.1),
+        sliderInput("hs_lag", info("hs_lag", "Data lag (years)"), 0, 3, 2, 1),
+        sliderInput("hs_assess", info("hs_assess", "Assessment error CV"), 0, 0.5, 0.2, 0.05),
+        sliderInput("hs_impl", info("hs_impl", "Implementation error CV"), 0, 0.5, 0.1, 0.05),
+        sliderInput("hs_effort", info("hs_effort", "Effort noise CV"), 0, 0.5, 0.1, 0.05),
+        sliderInput("proc_scale", info("proc_scale", "Process SD (x r-based default)"), 0, 2, 1, 0.1),
+        checkboxInput("proc_dep", info("proc_dep", "JABBA proc.dyn (volatile at low B)"), TRUE),
+        radioButtons("proc_center", info("proc_center", "Process error centred on"), c("median", "mean"), inline = TRUE),
+        sliderInput("proc_rho", info("proc_rho", "Process AR(1)"), 0, 0.9, 0.3, 0.1),
         h5("Simulation"),
-        numericInput("hs_nsim", "Simulations", 100, 10, 1000, 10),
-        numericInput("hs_years", "Years", 40, 10, 100, 5),
+        numericInput("hs_nsim", info("hs_nsim", "Simulations"), 100, 10, 1000, 10),
+        numericInput("hs_years", info("hs_years", "Years"), 40, 10, 100, 5),
         actionButton("run_hs", "Run", class = "btn-primary")),
       mainPanel(width = 9, tableOutput("hs_perf"),
                 plotOutput("hs_status", height = "420px"), plotOutput("hs_fleet", height = "300px")))),
@@ -124,10 +164,10 @@ ui <- navbarPage(
   tabPanel("6. Tune triggers",
     sidebarLayout(
       sidebarPanel(width = 3,
-        sliderInput("tu_eff", "Effort triggers", 0.3, 1.5, c(0.4, 1.0), 0.1),
-        textInput("tu_close", "Closure triggers (comma-separated)", "1, 1.5, 2, 3, 5"),
-        numericInput("tu_risk", "Risk limit: worst stock P(B < Bpa)", 0.05, 0.01, 0.5, 0.01),
-        numericInput("tu_nsim", "Simulations per grid point", 50, 10, 500, 10),
+        sliderInput("tu_eff", info("tu_eff", "Effort triggers"), 0.3, 1.5, c(0.4, 1.0), 0.1),
+        textInput("tu_close", info("tu_close", "Closure triggers (comma-separated)"), "1, 1.5, 2, 3, 5"),
+        numericInput("tu_risk", info("tu_risk", "Risk limit: worst stock P(B < Bpa)"), 0.05, 0.01, 0.5, 0.01),
+        numericInput("tu_nsim", info("tu_nsim", "Simulations per grid point"), 50, 10, 500, 10),
         p(class = "note", "Uses the rule and uncertainty settings of tab 5. Each grid point sees the same random errors."),
         actionButton("run_tu", "Tune", class = "btn-primary")),
       mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table"))))
@@ -180,7 +220,7 @@ server <- function(input, output, session) {
   output$share_inputs <- renderUI({
     sys <- rv$sys; req(sys)
     lapply(names(sys$segments), function(g)
-      numericInput(paste0("share_", g), paste("Target share of days:", g), round(sys$segments[[g]], 2), 0, 1, 0.05))
+      numericInput(paste0("share_", g), info("share", paste("Target share of days:", g)), round(sys$segments[[g]], 2), 0, 1, 0.05))
   })
   output$sq_summary <- renderTable(summary_table(rv$sq, "Status quo"), striped = TRUE)
   output$sq_stocks <- renderTable(state_table(rv$sq, rv$sys), striped = TRUE)
@@ -196,11 +236,11 @@ server <- function(input, output, session) {
   output$day_sliders <- renderUI({
     sys <- rv$sys; sq <- rv$sq; req(sys, sq)
     lapply(names(sys$segments), function(g)
-      sliderInput(paste0("days_", g), paste("Days:", g), 0, input$capacity, round(sq$E_seg[[g]]), 10))
+      sliderInput(paste0("days_", g), info("days", paste("Days:", g)), 0, input$capacity, round(sq$E_seg[[g]]), 10))
   })
   output$open_boxes <- renderUI({
     sys <- rv$sys; req(sys)
-    checkboxGroupInput("open_m", "Open metiers", sys$metiers$name, sys$metiers$name)
+    checkboxGroupInput("open_m", info("open_m", "Open metiers"), sys$metiers$name, sys$metiers$name)
   })
   eq <- eventReactive(input$run_eq, {
     sys <- rv$sys
@@ -215,7 +255,7 @@ server <- function(input, output, session) {
   }, striped = TRUE)
 
   # 3. yield curves
-  output$yc_close <- renderUI(selectInput("yc_close_m", "Metier to close", req(rv$sys)$metiers$name))
+  output$yc_close <- renderUI(selectInput("yc_close_m", info("yc_close_m", "Metier to close"), req(rv$sys)$metiers$name))
   yc <- eventReactive(input$run_yc, {
     sys <- rv$sys; sq <- rv$sq; mult <- c(0, 10^seq(-1.5, log10(6), length.out = 35))
     op <- as.numeric(sys$metiers$name != input$yc_close_m)
@@ -238,7 +278,7 @@ server <- function(input, output, session) {
   }, striped = TRUE)
 
   # 4. optimiser
-  output$opt_close <- renderUI(checkboxGroupInput("opt_closed", "Closed metiers", req(rv$sys)$metiers$name))
+  output$opt_close <- renderUI(checkboxGroupInput("opt_closed", info("opt_closed", "Closed metiers"), req(rv$sys)$metiers$name))
   opt <- eventReactive(input$run_opt, {
     sys <- rv$sys
     lev <- if (input$opt_levers == "total") "total" else names(sys$segments)
@@ -255,7 +295,7 @@ server <- function(input, output, session) {
     plot_kobe(list("Status quo" = rv$sq, "Safeguarded optimum" = o), rv$sys) }, res = 110)
 
   # 5. harvest strategy
-  output$hs_close <- renderUI(selectInput("hs_close_s", "Closure for stock", c("none", req(rv$sys)$species)))
+  output$hs_close <- renderUI(selectInput("hs_close_s", info("hs_close_s", "Closure for stock"), c("none", req(rv$sys)$species)))
   rule_args <- reactive(list(Btrig = input$hs_btrig, Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess,

@@ -33,3 +33,4 @@ VignetteBuilder: knitr
 URL: https://github.com/Henning-Winker/mmsyFM
 BugReports: https://github.com/Henning-Winker/mmsyFM/issues
 Config/roxygen2/version: 8.1.1
+RoxygenNote: 7.3.1

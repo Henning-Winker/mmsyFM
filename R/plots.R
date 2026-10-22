@@ -53,6 +53,8 @@ ref_F <- function() geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewid
 #' @param Btrigger,Ftgt,Bclose HCR trigger, target F (relative to Fmsy) and
 #'   biomass at which F reaches zero (default `Blim`, as in [hcr_effort()]).
 #' @param zones `"hcr"` (coloured zones and the HCR line) or `"simple"`.
+#' @param palette zone colours: `"pastel"` (default) or `"flref"` (the
+#'   saturated colours of `FLRef::plotWKREF()`).
 #' @param alpha opacity of the zones.
 #' @return A ggplot.
 #' @export
@@ -63,8 +65,12 @@ ref_F <- function() geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewid
 #' plot_kobe(list("Status quo" = sq), sys)
 #' }
 plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25, Btrigger = 0.8, Ftgt = 1,
-                      Bclose = Blim, zones = c("hcr", "simple"), alpha = 1) {
-  zones <- match.arg(zones)
+                      Bclose = Blim, zones = c("hcr", "simple"), palette = c("pastel", "flref"),
+                      alpha = 1) {
+  zones <- match.arg(zones); palette <- match.arg(palette)
+  zc <- if (palette == "pastel")
+    c(green = "#d4ecd0", yellow = "#fbf1b8", orange = "#fbd9b4", red = "#f6c6c0", crit = "#8b1a1a", crit_a = 0.22)
+  else c(green = "green", yellow = "yellow", orange = "orange", red = "red", crit = "red4", crit_a = 0.7)
   d <- do.call(rbind, lapply(names(states), function(nm)
     data.frame(scenario = nm, code = sys$code, group = sys$group,
                BBmsy = unname(states[[nm]]$BBmsy), FFmsy = unname(states[[nm]]$FFmsy))))
@@ -93,15 +99,17 @@ plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25, Btrigger = 0.8, Ftgt 
     bl <- seq(0, xmax, length.out = 400)
     lab_ref <- function(x, y, l, ...) annotate("text", x = x, y = y, label = l, parse = TRUE, size = 3.3, ...)
     p <- ggplot(d, aes(BBmsy, FFmsy)) +
-      zone(0, Bpa, TRUE, "yellow") + zone(0, Bpa, FALSE, "red") +
-      zone(Bpa, xmax, TRUE, "green") + zone(Bpa, xmax, FALSE, "orange") +
-      annotate("rect", xmin = 0, xmax = Blim, ymin = 0, ymax = ymax, fill = "red4", alpha = 0.7) +
+      zone(0, Bpa, TRUE, zc[["yellow"]]) + zone(0, Bpa, FALSE, zc[["red"]]) +
+      zone(Bpa, xmax, TRUE, zc[["green"]]) + zone(Bpa, xmax, FALSE, zc[["orange"]]) +
+      annotate("rect", xmin = 0, xmax = Blim, ymin = 0, ymax = ymax, fill = zc[["crit"]],
+               alpha = as.numeric(zc[["crit_a"]])) +
       annotate("line", x = bl, y = hcr(bl), colour = "black", linewidth = 0.4) +
       annotate("segment", x = 0, xend = Btrigger, y = Ftgt, yend = Ftgt, linetype = "dashed", linewidth = 0.3) +
       annotate("segment", x = Btrigger, xend = Btrigger, y = 0, yend = Ftgt, linetype = "dashed", linewidth = 0.3) +
       annotate("segment", x = Blim, xend = Blim, y = 0, yend = Ftgt, linewidth = 0.8) +
       annotate("segment", x = Bpa, xend = Bpa, y = 0, yend = hcr(Bpa), linewidth = 0.3) +
-      annotate("segment", x = 1, xend = 1, y = 0, yend = Ftgt, colour = "blue", linewidth = 0.8) +
+      annotate("segment", x = 1, xend = 1, y = 0, yend = Ftgt, colour = if (palette == "pastel") "#2a5db0" else "blue",
+               linewidth = 0.8) +
       lab_ref(Blim, Ftgt * 1.05, "B[lim]", hjust = 0, vjust = 0) +
       lab_ref(Bpa, Ftgt * 0.05, "B[thresh]", hjust = 1.05, vjust = 0) +
       lab_ref(Btrigger, Ftgt * 1.05, "B[trigger]", hjust = 1, vjust = 0) +

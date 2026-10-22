@@ -41,10 +41,5 @@ Useful links:
 \author{
 \strong{Maintainer}: Henning Winker \email{henning.winker@fao.org}
 
-Authors:
-\itemize{
-  \item Henning Winker \email{henning.winker@fao.org}
-}
-
 }
 \keyword{internal}
