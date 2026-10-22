@@ -52,21 +52,25 @@ got_species <- function() {
 #' * purse seine: mackerel/scad, and light-luring anchovy/small pelagics;
 #' * small-scale: five coastal métiers (crab, shrimp, pelagic gillnet,
 #'   hook and trap, cephalopod), confined to the coastal zone. Small-scale
-#'   is the generalist: no loyalty, low efficiency (0.075 of an industrial
-#'   vessel-day) and a matching low daily cost, and the target share of days
-#'   is 82%.
+#'   is the generalist, switching freely between its five tactics, with low
+#'   efficiency (0.075 of an industrial vessel-day) and a matching low daily
+#'   cost.
 #'
-#' Catchability follows an expert overlap matrix (main fishery 1, by-catch
-#' 0.2) scaled by r (q = 0.006 r x overlap), so a day has the same F/Fmsy
-#' effect on every stock and the spread in status comes from the overlaps; squid is shared by small-scale, trawl and the
-#' light-luring seine, and scads by both seines and trawl. Prices are
-#' relative and indicative. `dep_2024` (mse.SEA) is carried in the species
-#' table but the stocks are not yet conditioned on it: daily costs were
-#' tuned ([ms_tune()], `cap = c(450, 225, 3000)`, `gamma = 1.5`) to 12/6/82%
-#' of days and a median status of 0.5 Bmsy (reached: 0.57), close to the median 2024
-#' depletion. All stocks have `F_cap = 1.95` (a floor at 0.05 Bmsy, so the
-#' tuned starting point has no extinctions); at the status quo the lowest
-#' stocks are Indo-Pacific mackerel, scads and squid (about 0.3 Bmsy).
+#' Every segment has loyalty 1 (zoning): it switches only among its own
+#' métiers.
+#'
+#' Catchability starts from an expert overlap matrix (main fishery 1,
+#' by-catch 0.2, scaled by r) and was then conditioned with [ms_condition()]
+#' so that each stock's status quo matches its mse.SEA 2024 depletion
+#' (`dep_2024`), with B/Bmsy limited to 0.05-1.5: shrimp is set to 1.5
+#' (mse.SEA: 0.97 B/K), croakers end at 0.07 (target 0.12, at the F cap),
+#' anchovies and sardines are free (about 0.75 Bmsy). Daily costs keep the
+#' days at 12/6/82% (trawl / purse seine / small-scale; capacity 450 / 225 /
+#' 3000 days, `gamma = 1.5`). The median status is 0.46 Bmsy. All stocks
+#' have `F_cap = 1.95` (a floor at 0.05 Bmsy) and simulations start from the
+#' conditioned depletions (`dep_init`). Squid is shared by small-scale, trawl
+#' and the light-luring seine, and scads by both seines and trawl. Prices are
+#' relative and indicative.
 #'
 #' @return An `ms_system`.
 #' @export

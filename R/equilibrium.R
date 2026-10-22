@@ -160,3 +160,72 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
   attr(out, "BBmsy") <- 2 * BK
   out
 }
+
+#' Condition stock status on target depletions
+#'
+#' Rescales each stock's catchability (its column of `sys$Q`, across all
+#' metiers) so that the open-access equilibrium reaches a target B/Bmsy per
+#' stock, while [ms_tune()] keeps the segment shares of days at
+#' `sys$segments` with total days held fixed (the overall effort level and
+#' the catchability scale are not separately identifiable).
+#'
+#' In the discrete Schaefer model B/Bmsy = 2 - F/Fmsy (with F/Fmsy as
+#' h/hmsy, see [ffmsy()]), so each inner step multiplies a stock's
+#' catchability by ((2 - target) / current F/Fmsy)^damp. Stocks with an `NA`
+#' target are left free. Targets are clamped to `range`.
+#'
+#' @param sys an `ms_system` (costs already roughly tuned, e.g. by [ms_tune()]).
+#' @param target named vector of target B/Bmsy (names = stock names or
+#'   codes); `NA` or missing stocks are free.
+#' @param range lower and upper limits of the targets.
+#' @param cap fleet capacity (days) by segment.
+#' @param gamma profit preference.
+#' @param outer,inner number of outer (cost tuning) and inner (catchability)
+#'   iterations.
+#' @param tol tolerance on |B/Bmsy - target| for the inner loop.
+#' @param damp damping exponent of the catchability update.
+#' @param years years to equilibrium.
+#' @param verbose print progress.
+#' @param ... passed to [ms_simulate()].
+#' @return The conditioned `ms_system`, with attribute `conditioning`: a data
+#'   frame of targets and achieved B/Bmsy and F/Fmsy, and the catchability
+#'   multipliers.
+#' @export
+ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 1.5,
+                         outer = 4, inner = 12, tol = 0.02, damp = 0.8, years = 300,
+                         verbose = TRUE, ...) {
+  idx <- match(names(target), sys$species)
+  idx[is.na(idx)] <- match(names(target)[is.na(idx)], sys$code)
+  if (anyNA(idx)) stop("unknown stock(s) in `target`: ", paste(names(target)[is.na(idx)], collapse = ", "), call. = FALSE)
+  tg <- rep(NA_real_, sys$S); tg[idx] <- pmin(pmax(target, range[1]), range[2])
+  on <- which(!is.na(tg))
+  mult_q <- rep(1, sys$S)
+  dep0 <- sys$dep_init %||% rep(1, sys$S); dep0[on] <- tg[on] / 2; sys$dep_init <- dep0
+  eq <- function(s) ms_status_quo(s, capacity = cap, gamma = gamma, years = years, ...)
+  for (o in seq_len(outer)) {
+    for (i in seq_len(inner)) {
+      st <- eq(sys)
+      err <- st$BBmsy[on] - tg[on]
+      if (verbose) message(sprintf("outer %d inner %2d | max |B/Bmsy - target| %.3f (%s) | days %s", o, i,
+                                   max(abs(err)), sys$code[on][which.max(abs(err))],
+                                   paste(round(st$E_seg), collapse = "/")))
+      if (max(abs(err)) < tol) break
+      f <- ((2 - tg[on]) / pmax(st$FFmsy[on], 1e-3))^damp
+      f <- pmin(pmax(f, 0.2), 5)
+      sys$Q[, on] <- sweep(sys$Q[, on, drop = FALSE], 2, f, "*")
+      mult_q[on] <- mult_q[on] * f
+    }
+    if (o == outer) break
+    sh <- st$E_seg / sum(st$E_seg)
+    if (max(abs(sh - sys$segments / sum(sys$segments))) < 0.01) break
+    sys <- ms_tune(sys, status = c(E_total = sum(st$E_seg)), cap = cap, gamma = gamma, verbose = FALSE,
+                   years_first = years, years = years, ...)
+  }
+  st <- eq(sys)
+  sys$dep_init <- pmin(pmax(st$BBmsy / 2, 1e-3), 1.5)
+  attr(sys, "conditioning") <- data.frame(species = sys$species, code = sys$code, target = tg,
+                                          BBmsy = round(st$BBmsy, 3), FFmsy = round(st$FFmsy, 3),
+                                          q_mult = round(mult_q, 4), row.names = NULL)
+  attr(sys, "status_quo") <- st
+  sys
+}

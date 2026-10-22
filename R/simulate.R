@@ -27,7 +27,8 @@
 #' @param hcr_lag years between the data a rule sees and the year its advice applies
 #'   (default 2: data of year y - 2, assessed in y - 1, advice for y). Before the
 #'   projection the data years are taken to be the initial state.
-#' @param B_init  n x S initial biomass (default K)
+#' @param B_init  initial biomass (n x S, or one value per stock); default
+#'   `sys$dep_init * K` (the system's starting depletion, 1 if not set)
 #' @param E_init  initial effort by segment (vector of length G or n x G; default the caps)
 #' @param proc_cv process error CV at the median r (JABBA form: the whole
 #'   process equation is multiplied by exp(eta), eta ~ N(-sigma^2/2, sigma^2))
@@ -101,7 +102,8 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   K <- matrix(sys$K, n, S, byrow = TRUE); r <- matrix(sys$r, n, S, byrow = TRUE)
   price <- sys$price; Q <- sys$Q; tQ <- t(Q)
   cost_m <- matrix(sys$cost, n, M, byrow = TRUE)
-  B <- B_init %||% K
+  B <- if (is.null(B_init)) K * matrix(sys$dep_init %||% 1, n, S, byrow = TRUE)
+       else matrix(B_init, n, S, byrow = is.null(dim(B_init)))
   E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
   open_fun <- if (is.function(open)) open else function(y) open
   F_cap <- rep_len(F_cap, sys$S)

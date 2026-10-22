@@ -7,8 +7,8 @@ test_that("Gulf of Thailand draft reproduces its tuned status quo", {
   sq <- ms_status_quo(sys, capacity = c(450, 225, 3000), gamma = 1.5, years = 300)
   sh <- sq$E_seg / sum(sq$E_seg)
   expect_equal(unname(round(sh, 2)), c(0.12, 0.06, 0.82), tolerance = 0.015)
-  expect_equal(stats::median(sq$BBmsy), 0.57, tolerance = 0.03)
-  expect_gt(min(sq$BBmsy), 0.05)
+  expect_equal(stats::median(sq$BBmsy), 0.46, tolerance = 0.03)
+  expect_gt(min(sq$BBmsy), 0.045)
 })
 
 test_that("F_cap keeps stocks at or above the Schaefer floor", {
@@ -30,4 +30,23 @@ test_that("smooth cap: close to the hard cap, used by default with process error
   sto <- ms_simulate(sys, E[rep(1, 4), ], years = 60, gamma = 1.5, proc_dep = "jabba",
                      proc_center = "median", seed = 1)
   expect_true(all(is.finite(sto$B)) && all(sto$B > 0))
+})
+
+test_that("the Gulf draft is conditioned on the 2024 depletions (B/Bmsy in [0.05, 1.5])", {
+  sys <- got_system_draft()
+  sp <- utils::read.csv(system.file("extdata", "got_species.csv", package = "mmsyFM"))
+  sq <- ms_status_quo(sys, capacity = c(450, 225, 3000), gamma = 1.5, years = 300)
+  tg <- pmin(pmax(2 * sp$dep_2024, 0.05), 1.5)
+  ok <- !is.na(tg) & sp$code != "CRO"           # croakers sit at the F cap (0.07 vs 0.12)
+  expect_lt(max(abs(sq$BBmsy[ok] - tg[ok])), 0.03)
+  expect_equal(unname(sys$dep_init[1]), sp$dep_init[1])
+})
+
+test_that("ms_condition moves a stock to its target", {
+  sys <- got_system_draft()
+  cs <- ms_condition(sys, c(Groupers = 1.0), cap = c(450, 225, 3000), outer = 1, inner = 8,
+                     years = 200, verbose = FALSE)
+  d <- attr(cs, "conditioning")
+  expect_lt(abs(d$BBmsy[d$code == "GRO"] - 1.0), 0.05)
+  expect_gt(d$q_mult[d$code == "GRO"], 0)
 })

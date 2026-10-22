@@ -28,12 +28,12 @@ proc_args <- function(input, sys) list(
 tips <- list(
   preset = "A ready-made system, or upload your own four tables: species, metiers, catchability and segments.",
   season_amp = "How much fishing days vary over the year: 0 = the same every month, 0.3 = plus or minus 30%, peaking in July.",
-  capacity = "Registered fleet capacity: the most days each segment could fish in a year. The days actually fished are those of the vessels that break even, so they can be fewer.",
+  capacity = "Registered fleet capacity by segment: the most days the segment could fish in a year. The days actually fished are those of the vessels that break even, so they can be fewer.",
   gamma = "0 = days spread evenly over the metiers, whatever they pay. Higher = days concentrate on the metiers with the best expected profit per day.",
   tune_min = "Target status of the weakest stock at open access. Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q (mse.SEA)</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
   opt_obj = "What is maximised at equilibrium: <b>yield</b> (total catch), <b>revenue</b> (catch x price) or <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY).",
-  opt_levers = "<b>One global cap</b>: a single limit on total days, split equally across segments.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
+  opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
   hs_btrig = "When an assessed stock falls below this B/Bmsy, the days of the segments that catch it are cut: full days at the trigger, a linear ramp down to zero at Blim (0.25 Bmsy). The most depleted stock a segment catches sets its cut.",
@@ -67,6 +67,7 @@ ui <- navbarPage(
   header = tags$head(tags$style(HTML(
     "body { font-size: 14px; } .well { background: #f7f7f5; } h4 { margin-top: 18px; }
      .note { color: #52514e; font-size: 13px; }
+     .draft { background: #fff6e0; border-left: 3px solid #e0a020; padding: 6px 8px; }
      .info { color: #2a5db0; cursor: help; margin-left: 5px; font-weight: normal; }
      .tooltip-inner { max-width: 340px; text-align: left; font-size: 13px; padding: 8px 10px; }")),
     tags$script(HTML("$(function() { $('body').tooltip({ selector: '[data-toggle=\\'tooltip\\']', container: 'body' }); });"))),
@@ -75,12 +76,16 @@ ui <- navbarPage(
   tabPanel("1. Set-up",
     sidebarLayout(
       sidebarPanel(width = 3,
-        selectInput("preset", info("preset", "System"), c("Atlantic example" = "atlantic", "Upload tables" = "upload")),
+        selectInput("preset", info("preset", "System"), c("Atlantic example" = "atlantic",
+          "Gulf of Thailand (draft)" = "got", "Upload tables" = "upload")),
+        conditionalPanel("input.preset == 'got'", p(class = "note draft",
+          "Draft: 20 stock groups (mse.SEA), trawl / purse seine / small-scale with coastal zoning.",
+          "Prices, gear overlaps and costs are indicative; the stocks are conditioned on the 2024 depletions where available.")),
         conditionalPanel("input.preset == 'upload'",
           fileInput("f_species", "species.csv"), fileInput("f_metiers", "metiers.csv"),
           fileInput("f_q", "catchability.csv"), fileInput("f_segments", "segments.csv"),
           numericInput("season_amp", info("season_amp", "Effort seasonality"), 0, 0, 1, 0.1)),
-        numericInput("capacity", info("capacity", "Capacity (days per segment)"), 1000, 1, step = 100),
+        uiOutput("cap_inputs"),
         sliderInput("gamma", info("gamma", "How strongly fishers chase profit"), 0, 3, 1.5, 0.25),
         uiOutput("gamma_help"),
         hr(),
@@ -192,7 +197,7 @@ server <- function(input, output, session) {
   # capacity, so a tuned system is kept)
   observeEvent(list(input$preset, input$f_species, input$f_metiers, input$f_q, input$f_segments,
                     input$season_amp), {
-    sys <- if (input$preset == "atlantic") atlantic_system() else {
+    sys <- if (input$preset == "atlantic") atlantic_system() else if (input$preset == "got") got_system_draft() else {
       req(input$f_species, input$f_metiers, input$f_q, input$f_segments)
       rd <- function(f) utils::read.csv(f$datapath, check.names = FALSE, stringsAsFactors = FALSE)
       tryCatch(ms_system(rd(input$f_species), rd(input$f_metiers), rd(input$f_q), rd(input$f_segments),
@@ -202,16 +207,33 @@ server <- function(input, output, session) {
     req(sys)
     rv$sys <- sys
   })
+  # capacity by segment: inputs default to the system's capacity (else 1000 days)
+  cap_default <- function(sys) {
+    d <- sys$capacity %||% setNames(rep(1000, sys$G), names(sys$segments))
+    d[names(sys$segments)]
+  }
+  output$cap_inputs <- renderUI({
+    sys <- rv$sys; req(sys); d <- cap_default(sys)
+    tagList(tags$label(info("capacity", "Capacity (registered days)")),
+      lapply(names(sys$segments), function(g)
+        numericInput(paste0("cap_", g), g, d[[g]], 1, step = 50)))
+  })
+  cap <- reactive({
+    sys <- rv$sys; req(sys); d <- cap_default(sys)
+    v <- vapply(names(sys$segments), function(g) {
+      x <- input[[paste0("cap_", g)]]; if (is.null(x) || is.na(x) || x <= 0) d[[g]] else x }, 0)
+    setNames(v, names(sys$segments))
+  })
   # status quo: open access at the current capacity and preference strength
   observe({
     req(rv$sys)
-    rv$sq <- ms_status_quo(rv$sys, input$capacity, gamma = input$gamma, years = 300)
+    rv$sq <- ms_status_quo(rv$sys, cap(), gamma = input$gamma, years = 300)
   })
   observeEvent(input$tune, {
     sys <- rv$sys; req(sys)
     sh <- vapply(names(sys$segments), function(g) input[[paste0("share_", g)]] %||% sys$segments[[g]], 0)
     withProgress(message = "Tuning daily costs", value = 0.3, {
-      tu <- ms_tune(sys, shares = sh / sum(sh), status = c(min = input$tune_min), cap = input$capacity,
+      tu <- ms_tune(sys, shares = sh / sum(sh), status = c(min = input$tune_min), cap = cap(),
                     gamma = input$gamma, verbose = FALSE)
     })
     rv$sys <- tu
@@ -236,7 +258,8 @@ server <- function(input, output, session) {
   output$day_sliders <- renderUI({
     sys <- rv$sys; sq <- rv$sq; req(sys, sq)
     lapply(names(sys$segments), function(g)
-      sliderInput(paste0("days_", g), info("days", paste("Days:", g)), 0, input$capacity, round(sq$E_seg[[g]]), 10))
+      sliderInput(paste0("days_", g), info("days", paste("Days:", g)), 0, cap()[[g]], round(sq$E_seg[[g]]),
+                  max(1, round(cap()[[g]] / 100))))
   })
   output$open_boxes <- renderUI({
     sys <- rv$sys; req(sys)
@@ -283,7 +306,8 @@ server <- function(input, output, session) {
     sys <- rv$sys
     lev <- if (input$opt_levers == "total") "total" else names(sys$segments)
     withProgress(message = "Optimising", value = 0.2,
-      ms_optimise(sys, input$opt_obj, levers = lev, upper = if (identical(lev, "total")) 3 * input$capacity else input$capacity,
+      ms_optimise(sys, input$opt_obj, levers = lev, upper = if (identical(lev, "total")) sum(cap()) else cap(),
+                  ratio = rv$sq$E_seg / sum(rv$sq$E_seg),
                   Bpa = input$opt_bpa, min_share = input$opt_minshare, gamma = input$gamma, years = 150,
                   open = as.numeric(!sys$metiers$name %in% input$opt_closed)))
   })
@@ -300,7 +324,7 @@ server <- function(input, output, session) {
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess,
                              max_change = if (input$hs_maxchange >= 1) Inf else input$hs_maxchange))
-  sim_args <- reactive(c(list(gamma = input$gamma, capacity = input$capacity, impl_cv = input$hs_impl,
+  sim_args <- reactive(c(list(gamma = input$gamma, capacity = cap(), impl_cv = input$hs_impl,
                               effort_cv = input$hs_effort, effort_rho = 0.5, hcr_lag = input$hs_lag),
                          proc_args(input, rv$sys)))
   hs <- eventReactive(input$run_hs, {
@@ -309,7 +333,7 @@ server <- function(input, output, session) {
     run <- function(caps, hcr = NULL) do.call(ms_simulate, c(list(sys, caps, input$hs_years, B_init = B0,
       E_init = E0, hcr = hcr, seed = 1, keep = "all"), sim_args()))
     withProgress(message = "Simulating", value = 0.3, list(
-      "No control" = run(matrix(input$capacity, n, sys$G)),
+      "No control" = run(matrix(cap(), n, sys$G, byrow = TRUE)),
       "Rule" = run(E0, do.call(hcr_effort, c(list(sys), rule_args())))))
   })
   output$hs_perf <- renderTable({
