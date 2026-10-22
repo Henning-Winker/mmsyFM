@@ -30,7 +30,7 @@ tips <- list(
   season_amp = "How much fishing days vary over the year: 0 = the same every month, 0.3 = plus or minus 30%, peaking in July.",
   capacity = "Registered fleet capacity by segment: the most days the segment could fish in a year. The days actually fished are those of the vessels that break even, so they can be fewer.",
   gamma = "0 = days spread evenly over the metiers, whatever they pay. Higher = days concentrate on the metiers with the best expected profit per day.",
-  tune_min = "Target status of the weakest stock at open access. Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
+  tune_min = "Target status of the weakest stock at open access (0.05 = the floor set by the F cap; Atlantic example 0.2). Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q (mse.SEA)</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
   opt_obj = "What is maximised at equilibrium: <b>yield</b> (total catch), <b>revenue</b> (catch x price) or <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY).",
   opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
@@ -91,7 +91,7 @@ ui <- navbarPage(
         hr(),
         h5("Tune the status quo (open access)"),
         uiOutput("share_inputs"),
-        numericInput("tune_min", info("tune_min", "Weakest stock at open access (B/Bmsy)"), 0.4, 0.05, 1.5, 0.05),
+        numericInput("tune_min", info("tune_min", "Weakest stock at open access (B/Bmsy)"), 0.2, 0.05, 1.5, 0.05),
         actionButton("tune", "Tune daily costs", class = "btn-primary"),
         p(class = "note", "Tuning solves the daily cost of each segment (about 45 s).")),
       mainPanel(width = 9,
@@ -206,6 +206,9 @@ server <- function(input, output, session) {
     }
     req(sys)
     rv$sys <- sys
+    # weakest-stock tuning target: 0.2 Bmsy for the Atlantic example; the
+    # Gulf (and uploads) to the 0.05 Bmsy floor of the F cap
+    updateNumericInput(session, "tune_min", value = if (input$preset == "atlantic") 0.2 else 0.05)
   })
   # capacity by segment: inputs default to the system's capacity (else 1000 days)
   cap_default <- function(sys) {
