@@ -4,7 +4,18 @@
 \alias{plot_kobe}
 \title{Kobe plot of equilibrium states}
 \usage{
-plot_kobe(states, sys, Bpa = 0.5, Blim = 0.25)
+plot_kobe(
+  states,
+  sys,
+  Bpa = 0.5,
+  Blim = 0.25,
+  Btrigger = 0.8,
+  Ftgt = 1,
+  Bclose = Blim,
+  zones = c("hcr", "simple"),
+  palette = c("pastel", "flref"),
+  alpha = 1
+)
 }
 \arguments{
 \item{states}{named list of states with \code{BBmsy} and \code{FFmsy} (e.g. from
@@ -12,11 +23,33 @@ plot_kobe(states, sys, Bpa = 0.5, Blim = 0.25)
 
 \item{sys}{an \code{ms_system}.}
 
-\item{Bpa, Blim}{reference points relative to Bmsy.}
+\item{Bpa, Blim}{reference points relative to Bmsy (\code{Bpa} is Bthresh).}
+
+\item{Btrigger, Ftgt, Bclose}{HCR trigger, target F (relative to Fmsy) and
+biomass at which F reaches zero (default \code{Blim}, as in \code{\link[=hcr_effort]{hcr_effort()}}).}
+
+\item{zones}{\code{"hcr"} (coloured zones and the HCR line) or \code{"simple"}.}
+
+\item{palette}{zone colours: \code{"pastel"} (default) or \code{"flref"} (the
+saturated colours of \code{FLRef::plotWKREF()}).}
+
+\item{alpha}{opacity of the zones.}
 }
 \value{
 A ggplot.
 }
 \description{
-One point per stock, one panel per scenario.
+One point per stock, one panel per scenario. With \code{zones = "hcr"} the
+background follows the WKREF/GFCM convention of \code{FLRef::plotWKREF()},
+with zones cut by the harvest control rule: below Bthresh, red above the
+HCR line and yellow below it; above Bthresh, orange above and green
+below; a dark overlay below Blim. The HCR line is F = 0 up to \code{Bclose},
+a linear ramp to \code{Ftgt} at \code{Btrigger}, and \code{Ftgt} above.
+}
+\examples{
+sys <- atlantic_system()
+\donttest{
+sq <- ms_status_quo(sys, capacity = 1000, gamma = 1.5, years = 200)
+plot_kobe(list("Status quo" = sq), sys)
+}
 }

@@ -20,7 +20,9 @@
 #'   (shares frozen at the unfished allocation: the classical shared-q model)
 #' @param phi     entry/exit rate of each segment: E_t+1 = min(cap, E_t * exp(phi * margin_g)),
 #'   margin_g = segment profit / segment revenue; 0 = effort always at the cap
-#' @param open    metier access (length M, or function(year) -> length M)
+#' @param open    métier access, 0-1 (the open share of each métier's ground or
+#'   season): a vector of length M (all months), a 12 x M matrix (by month, e.g.
+#'   a seasonal closure), or a function of the year returning either.
 #' @param hcr     optional function(state) -> n x G multiplier on caps
 #' @param hcr_lag years between the data a rule sees and the year its advice applies
 #'   (default 2: data of year y - 2, assessed in y - 1, advice for y). Before the
@@ -62,6 +64,18 @@
 #'   towards capacity x the share of vessels that break even (lognormal vessel
 #'   efficiency, mean 1), and the active vessels' mean efficiency is the mean of
 #'   that upper tail. phi is then the annual adjustment rate (0-1).
+#' @param F_cap   cap on each stock's realised F, in units of Fmsy (scalar or
+#'   one per stock; default `sys$F_cap`, else `Inf`). F/Fmsy is measured as
+#'   the harvest-rate ratio h/hmsy (see [ffmsy()]); the cap on h is converted
+#'   to instantaneous F and applied monthly as one twelfth. Extra effort on a capped stock catches nothing more, so
+#'   its catch per day falls (economic extinction: the stock is left to rare
+#'   by-catch). In Schaefer equilibrium B/Bmsy = 2 - F/Fmsy, so a cap below 2
+#'   sets a floor: `F_cap = 1.95` keeps every stock at or above 0.05 Bmsy.
+#' @param F_cap_p shape of the cap: `Inf` = hard cap, min(F, F_cap); a finite
+#'   p = smooth cap, (F^-p + F_cap^-p)^(-1/p), which approaches F_cap
+#'   without a kink (p = 8 lowers F by about 1.5% at 1.5 Fmsy when F_cap = 1.95).
+#'   Default `NULL`: hard without process error (equilibrium and tuning),
+#'   p = 8 with process error (stochastic runs).
 #' @param keep    "final" (equilibrium summaries) or "all" (trajectories)
 #' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, and the system.
 #' @export
@@ -77,7 +91,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                         proc_center = c("mean", "median"),
                         impl_cv = 0, impl_bias = 0, effort_cv = 0, effort_rho = 0,
                         seed = NULL, crn = NULL, keep = c("final", "all"),
-                        avg_years = 10) {
+                        avg_years = 10, F_cap = sys$F_cap %||% Inf, F_cap_p = NULL) {
   behaviour <- match.arg(behaviour); info <- match.arg(info); keep <- match.arg(keep)
   proc_dep <- match.arg(proc_dep); proc_center <- match.arg(proc_center)
   if (proc_dep == "none" && proc_dep_power != 0) proc_dep <- "power"
@@ -90,6 +104,9 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   B <- B_init %||% K
   E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
   open_fun <- if (is.function(open)) open else function(y) open
+  F_cap <- rep_len(F_cap, sys$S)
+  h_cap <- F_cap * sys$r / 2                  # cap on the annual harvest rate h = 1 - exp(-F)
+  Fcap_mo <- matrix(ifelse(h_cap < 1, -log1p(-pmin(h_cap, 1)), Inf) / 12, n, sys$S, byrow = TRUE)
   Bbuf <- replicate(hcr_lag + 1, B, simplify = FALSE)      # start-of-year biomass, most recent first
   capacity <- if (is.null(capacity)) caps else matrix(capacity, n, G, byrow = is.null(dim(capacity)))
   emult <- matrix(1, n, G)
@@ -111,6 +128,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   }
   sig_i <- matrix(proc_sd, n, S, byrow = TRUE)                       # by species, at proc_dep_ref
   sig <- max(proc_sd)
+  if (is.null(F_cap_p)) F_cap_p <- if (sig > 0) 8 else Inf   # hard cap deterministic, smooth stochastic
   sig_impl <- if (impl_cv > 0) sqrt(log(1 + impl_cv^2)) else 0
   sig_eff <- if (effort_cv > 0) sqrt(log(1 + effort_cv^2)) else 0
   qdev <- matrix(1, n, G); edev <- NULL
@@ -122,7 +140,10 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
 
   for (y in seq_len(years)) {
     op <- open_fun(y)
-    opm <- matrix(if (is.null(dim(op))) rep_len(op, M) else op, n, M, byrow = is.null(dim(op)))
+    monthly <- is.matrix(op) && nrow(op) == 12 && ncol(op) == M
+    op_mo <- if (monthly) op else matrix(1, 12, M)              # month-by-metier open share
+    opm <- if (monthly) matrix(1, n, M) else
+      matrix(if (is.null(dim(op))) rep_len(op, M) else op, n, M, byrow = is.null(dim(op)))
     E_cap_y <- caps
     if (!is.null(hcr)) {
       # a rule returns multipliers on the caps (n x G), or list(mult, open) where
@@ -146,7 +167,9 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
     E_seg <- pmin(E_seg, E_cap_y); if (phi == 0) E_seg <- E_cap_y
     Bm <- B
     C_y <- matrix(0, n, S); F_y <- C_y; Em_y <- matrix(0, n, M); rev_m <- matrix(0, n, M); Eg_y <- array(0, c(n, G, M)); Eeff_y <- Em_y
+    opm_y <- opm
     for (mo in 1:12) {
+      opm <- opm_y * matrix(op_mo[mo, ], n, M, byrow = TRUE)     # this month's open share
       av <- matrix(sys$avail[mo, ], n, S, byrow = TRUE)
       Bav <- Bm * av
       if (behaviour == "fixed") {
@@ -159,11 +182,13 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                                gamma, opm > 0, cost = cost_m, emult = emult * qdev, cseg = cseg)
       }
       E_eff <- attr(E_m, "effective") * opm         # effective effort on the open share
-      Fm <- (E_eff %*% Q) * av                     # n x S fishing mortality this month
+      Fm <- (E_eff %*% Q) * av                     # n x S nominal fishing mortality this month
+      Fs <- pmax(Fm, 1e-12)
+      if (any(is.finite(F_cap)))                    # saturation: realised F at most F_cap Fmsy
+        Fm <- if (is.finite(F_cap_p)) (Fm^-F_cap_p + Fcap_mo^-F_cap_p)^(-1 / F_cap_p) else pmin(Fm, Fcap_mo)
       Cm <- Bm * (1 - exp(-Fm))
       # catch by metier (proportional split of each species' catch by F share)
       share_m <- array(0, c(n, M))
-      Fs <- pmax(Fm, 1e-12)
       for (m in seq_len(M)) {
         Fim <- outer(E_eff[, m], Q[m, ]) * av
         rev_m[, m] <- rev_m[, m] + rowSums((Cm * Fim / Fs) %*% diag(price, S))
@@ -171,6 +196,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       Bm <- Bm - Cm
       C_y <- C_y + Cm; F_y <- F_y + Fm; Em_y <- Em_y + E_m; Eg_y <- Eg_y + attr(E_m, "by_seg"); Eeff_y <- Eeff_y + E_eff
     }
+    opm <- opm_y * matrix(colMeans(op_mo), n, M, byrow = TRUE)  # annual open share (exit decisions)
     cpue_last <- ifelse(Eeff_y > 0, rev_m / pmax(Eeff_y, 1e-12), cpue_last)   # per effective effort
     revenue <- as.vector(C_y %*% price)
     costs <- rowSums(matrix(sapply(seq_len(G), function(g)
@@ -249,11 +275,32 @@ ms_summary <- function(x, Bpa = 0.5, Blim = 0.25) {
     E_total = rowSums(apply(x$E_seg, c(2, 3), mean)),
     min_BBmsy = apply(BBmsy, 1, min),
     worst = sys$species[apply(BBmsy, 1, which.min)],
-    max_FFmsy = apply(sweep(apply(x$F, c(2, 3), mean), 2, sys$r / 2, "/"), 1, max),
+    max_FFmsy = apply(ffmsy(apply(x$F, c(2, 3), function(f) mean(1 - exp(-f))), sys$r, h = TRUE), 1, max),
     n_below_Bpa = rowSums(BBmsy < Bpa), n_below_Blim = rowSums(BBmsy < Blim),
     check.names = FALSE) -> out
-  FFmsy <- sweep(apply(x$F, c(2, 3), mean), 2, sys$r / 2, "/"); colnames(FFmsy) <- sys$species
+  FFmsy <- ffmsy(apply(x$F, c(2, 3), function(f) mean(1 - exp(-f))), sys$r, h = TRUE)
+  colnames(FFmsy) <- sys$species
   attr(out, "BBmsy") <- BBmsy; attr(out, "FFmsy") <- FFmsy; attr(out, "catch") <- Cbar
   out
 }
 
+
+#' F relative to Fmsy in the discrete Schaefer model
+#'
+#' Growth is computed on start-of-year biomass and a year of fishing removes
+#' B (1 - exp(-F)), so equilibrium is B/K = 1 - h/r with harvest rate
+#' h = 1 - exp(-F), hmsy = r/2 and B/Bmsy = 2 - h/hmsy exactly. `ffmsy()`
+#' returns h/hmsy. (Using r/2 for instantaneous F overstates F/Fmsy for fast
+#' stocks: for r = 1.4, Fmsy = -log(1 - r/2) = 1.2, not 0.7.)
+#'
+#' @param F instantaneous annual F (vector, or matrix with stocks in columns).
+#' @param r intrinsic growth rate(s), one per stock.
+#' @param h if `TRUE`, `F` is already a harvest rate.
+#' @return h / hmsy, same shape as `F`.
+#' @export
+#' @examples
+#' ffmsy(-log(1 - 0.7), r = 1.4)   # 1: fished at MSY
+ffmsy <- function(F, r, h = FALSE) {
+  hr <- if (h) F else 1 - exp(-F)
+  if (is.null(dim(hr))) hr / (r / 2) else sweep(hr, length(dim(hr)), r / 2, "/")
+}

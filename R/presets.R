@@ -42,3 +42,41 @@ got_species <- function() {
   names(d) <- c("species", "K", "r", "dep_2024", "q", "group")
   d
 }
+
+#' Gulf of Thailand system (draft)
+#'
+#' **Draft, indicative only.** Twenty stocks (the 18 mse.SEA groups plus
+#' anchovies and sardines), ten métiers and three segments:
+#' * trawl: inner (15-30 m, mud), mid (30-50 m) and outer shelf (50-80 m,
+#'   sand) grounds;
+#' * purse seine: mackerel/scad, and light-luring anchovy/small pelagics;
+#' * small-scale: five coastal métiers (crab, shrimp, pelagic gillnet,
+#'   hook and trap, cephalopod), confined to the coastal zone. Small-scale
+#'   is the generalist: no loyalty, low efficiency (0.075 of an industrial
+#'   vessel-day) and a matching low daily cost, and the target share of days
+#'   is 82%.
+#'
+#' Catchability follows an expert overlap matrix (main fishery 1, by-catch
+#' 0.2) scaled by r (q = 0.006 r x overlap), so a day has the same F/Fmsy
+#' effect on every stock and the spread in status comes from the overlaps; squid is shared by small-scale, trawl and the
+#' light-luring seine, and scads by both seines and trawl. Prices are
+#' relative and indicative. `dep_2024` (mse.SEA) is carried in the species
+#' table but the stocks are not yet conditioned on it: daily costs were
+#' tuned ([ms_tune()], `cap = c(450, 225, 3000)`, `gamma = 1.5`) to 12/6/82%
+#' of days and a median status of 0.5 Bmsy (reached: 0.57), close to the median 2024
+#' depletion. All stocks have `F_cap = 1.95` (a floor at 0.05 Bmsy, so the
+#' tuned starting point has no extinctions); at the status quo the lowest
+#' stocks are Indo-Pacific mackerel, scads and squid (about 0.3 Bmsy).
+#'
+#' @return An `ms_system`.
+#' @export
+#' @examples
+#' sys <- got_system_draft()
+#' sys
+#' \donttest{
+#' sq <- ms_status_quo(sys, capacity = c(450, 225, 3000), gamma = 1.5, years = 300)
+#' round(sort(sq$BBmsy), 2)
+#' }
+got_system_draft <- function() {
+  read_ms_system(system.file("extdata", package = "mmsyFM"), "got")
+}

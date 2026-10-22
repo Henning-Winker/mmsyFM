@@ -32,3 +32,14 @@ test_that("process-error helpers match their anchors", {
   expect_equal(relsig_jabba(1), 1)
   expect_gt(relsig_jabba(0.25), relsig_jabba(0.5))
 })
+
+test_that("F/Fmsy is exact for the discrete Schaefer model (B/Bmsy + F/Fmsy = 2)", {
+  sys <- got_system_draft()   # r from 0.05 to 1.4
+  x <- ms_simulate(sys, matrix(c(450, 225, 3000), 1, 3), years = 600, F_cap = Inf,
+                   cost_seg = c(0.35, 0.2, 0.015))
+  s <- ms_summary(x)
+  tot <- attr(s, "BBmsy")[1, ] + attr(s, "FFmsy")[1, ]
+  ok <- attr(s, "BBmsy")[1, ] > 0.01                 # extinct stocks: F/Fmsy unconstrained
+  expect_equal(unname(tot[ok]), rep(2, sum(ok)), tolerance = 0.01)
+  expect_equal(ffmsy(-log(1 - 0.7), 1.4), 1)
+})

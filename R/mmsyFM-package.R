@@ -39,4 +39,4 @@ NULL
 utils::globalVariables(c(
   "E", "value", "scenario", "yield", "BBmsy", "FFmsy", "code", "group", "year", "med",
   "lo", "hi", "run", "share", "metier", "treatment", "point", "min_BBmsy",
-  "n_below_Bpa", "species", "lt", "y", "panel"))
+  "n_below_Bpa", "species", "lt", "y", "panel", "b"))
