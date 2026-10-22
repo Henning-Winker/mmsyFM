@@ -20,7 +20,9 @@
 #'   (shares frozen at the unfished allocation: the classical shared-q model)
 #' @param phi     entry/exit rate of each segment: E_t+1 = min(cap, E_t * exp(phi * margin_g)),
 #'   margin_g = segment profit / segment revenue; 0 = effort always at the cap
-#' @param open    metier access (length M, or function(year) -> length M)
+#' @param open    métier access, 0-1 (the open share of each métier's ground or
+#'   season): a vector of length M (all months), a 12 x M matrix (by month, e.g.
+#'   a seasonal closure), or a function of the year returning either.
 #' @param hcr     optional function(state) -> n x G multiplier on caps
 #' @param hcr_lag years between the data a rule sees and the year its advice applies
 #'   (default 2: data of year y - 2, assessed in y - 1, advice for y). Before the
@@ -122,7 +124,10 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
 
   for (y in seq_len(years)) {
     op <- open_fun(y)
-    opm <- matrix(if (is.null(dim(op))) rep_len(op, M) else op, n, M, byrow = is.null(dim(op)))
+    monthly <- is.matrix(op) && nrow(op) == 12 && ncol(op) == M
+    op_mo <- if (monthly) op else matrix(1, 12, M)              # month-by-metier open share
+    opm <- if (monthly) matrix(1, n, M) else
+      matrix(if (is.null(dim(op))) rep_len(op, M) else op, n, M, byrow = is.null(dim(op)))
     E_cap_y <- caps
     if (!is.null(hcr)) {
       # a rule returns multipliers on the caps (n x G), or list(mult, open) where
@@ -146,7 +151,9 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
     E_seg <- pmin(E_seg, E_cap_y); if (phi == 0) E_seg <- E_cap_y
     Bm <- B
     C_y <- matrix(0, n, S); F_y <- C_y; Em_y <- matrix(0, n, M); rev_m <- matrix(0, n, M); Eg_y <- array(0, c(n, G, M)); Eeff_y <- Em_y
+    opm_y <- opm
     for (mo in 1:12) {
+      opm <- opm_y * matrix(op_mo[mo, ], n, M, byrow = TRUE)     # this month's open share
       av <- matrix(sys$avail[mo, ], n, S, byrow = TRUE)
       Bav <- Bm * av
       if (behaviour == "fixed") {
@@ -171,6 +178,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       Bm <- Bm - Cm
       C_y <- C_y + Cm; F_y <- F_y + Fm; Em_y <- Em_y + E_m; Eg_y <- Eg_y + attr(E_m, "by_seg"); Eeff_y <- Eeff_y + E_eff
     }
+    opm <- opm_y * matrix(colMeans(op_mo), n, M, byrow = TRUE)  # annual open share (exit decisions)
     cpue_last <- ifelse(Eeff_y > 0, rev_m / pmax(Eeff_y, 1e-12), cpue_last)   # per effective effort
     revenue <- as.vector(C_y %*% price)
     costs <- rowSums(matrix(sapply(seq_len(G), function(g)
