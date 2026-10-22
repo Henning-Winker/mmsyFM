@@ -32,42 +32,46 @@ export(relsig_jabba)
 export(run_app)
 export(theme_ms)
 export(write_ms_system)
-importFrom(ggplot2,"%+replace%")
-importFrom(ggplot2,aes)
-importFrom(ggplot2,annotate)
-importFrom(ggplot2,coord_cartesian)
-importFrom(ggplot2,element_blank)
-importFrom(ggplot2,element_line)
-importFrom(ggplot2,element_text)
-importFrom(ggplot2,expansion)
-importFrom(ggplot2,facet_wrap)
-importFrom(ggplot2,geom_area)
-importFrom(ggplot2,geom_hline)
-importFrom(ggplot2,geom_line)
-importFrom(ggplot2,geom_point)
-importFrom(ggplot2,geom_ribbon)
-importFrom(ggplot2,geom_step)
-importFrom(ggplot2,geom_text)
-importFrom(ggplot2,geom_tile)
-importFrom(ggplot2,geom_vline)
-importFrom(ggplot2,ggplot)
-importFrom(ggplot2,labs)
-importFrom(ggplot2,margin)
-importFrom(ggplot2,rel)
-importFrom(ggplot2,scale_colour_manual)
-importFrom(ggplot2,scale_fill_gradient)
-importFrom(ggplot2,scale_fill_manual)
-importFrom(ggplot2,scale_linetype_identity)
-importFrom(ggplot2,scale_shape_manual)
-importFrom(ggplot2,scale_x_continuous)
-importFrom(ggplot2,scale_x_log10)
-importFrom(ggplot2,scale_y_continuous)
-importFrom(ggplot2,theme)
-importFrom(ggplot2,theme_minimal)
-importFrom(ggplot2,unit)
-importFrom(stats,median)
-importFrom(stats,pnorm)
-importFrom(stats,quantile)
-importFrom(stats,rnorm)
-importFrom(stats,sd)
-importFrom(stats,setNames)
+importFrom(ggplot2,
+  "%+replace%",
+  aes,
+  annotate,
+  coord_cartesian,
+  element_blank,
+  element_line,
+  element_text,
+  expansion,
+  facet_wrap,
+  geom_area,
+  geom_hline,
+  geom_line,
+  geom_point,
+  geom_ribbon,
+  geom_step,
+  geom_text,
+  geom_tile,
+  geom_vline,
+  ggplot,
+  labs,
+  margin,
+  rel,
+  scale_colour_manual,
+  scale_fill_gradient,
+  scale_fill_manual,
+  scale_linetype_identity,
+  scale_shape_manual,
+  scale_x_continuous,
+  scale_x_log10,
+  scale_y_continuous,
+  theme,
+  theme_minimal,
+  unit
+)
+importFrom(stats,
+  median,
+  pnorm,
+  quantile,
+  rnorm,
+  sd,
+  setNames
+)
