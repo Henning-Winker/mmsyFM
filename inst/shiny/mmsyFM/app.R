@@ -41,7 +41,8 @@ ui <- navbarPage(
           fileInput("f_q", "catchability.csv"), fileInput("f_segments", "segments.csv"),
           numericInput("season_amp", "Effort seasonality", 0, 0, 1, 0.1)),
         numericInput("capacity", "Capacity (days per segment)", 1000, 1, step = 100),
-        sliderInput("gamma", "Preference strength (gamma)", 0, 3, 1.5, 0.25),
+        sliderInput("gamma", "How strongly fishers chase profit", 0, 3, 1.5, 0.25),
+        uiOutput("gamma_help"),
         hr(),
         h5("Tune the status quo (open access)"),
         uiOutput("share_inputs"),
@@ -133,6 +134,17 @@ ui <- navbarPage(
 )
 
 server <- function(input, output, session) {
+  # plain-language reading of the profit preference (gamma)
+  output$gamma_help <- renderUI({
+    g <- input$gamma
+    shareA <- round(100 * 2^g / (1 + 2^g))
+    p(class = "note",
+      "Each segment spreads its days over its metiers in proportion to expected profit per day, raised to this power.",
+      tags$br(), "0 = profit-blind (days spread evenly); higher = days concentrate on the best-paying metiers.",
+      tags$br(), tags$b(sprintf("At %s: if metier A pays twice the profit of B, A gets %d%% of the days", g, shareA)),
+      sprintf("(0: 50%%, 1: 67%%, 3: 89%%)."))
+  })
+
   rv <- reactiveValues(sys = NULL, sq = NULL)
 
   # system and status quo
