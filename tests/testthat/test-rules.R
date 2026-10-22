@@ -24,3 +24,18 @@ test_that("a lag of 0 and 2 years both run, and ms_tune_hcr returns a table", {
   expect_equal(nrow(tu$table), 2)
   expect_true(all(c("yield", "worst_P_below_Bpa") %in% names(tu$table)))
 })
+
+test_that("minimum effort floor and phased change limit", {
+  sys <- got_system_draft(); cap <- c(450, 225, 3000)
+  sq <- ms_status_quo(sys, capacity = cap, gamma = 1.5, years = 150)
+  E0 <- matrix(sq$E_seg, 1, 3)
+  run <- function(...) ms_simulate(sys, E0, 30, B_init = matrix(sq$B, 1), E_init = E0, capacity = cap,
+                                   gamma = 1.5, keep = "all", phi = 0, hcr = hcr_effort(sys, Btrig = 0.6, ...))
+  x <- run(Emin = 0.1, max_change = 0.2)
+  frac <- sweep(x$E_seg[, 1, ], 2, sq$E_seg, "/")
+  expect_gt(min(frac), 0.1 - 1e-6)                    # never below the floor
+  expect_gt(min(frac[1, ]), 0.8 - 1e-6)               # year 1: at most 20% below the status quo
+  expect_lt(max(abs(diff(frac))), 0.2 + 1e-6)         # at most 20% of the reference days a year
+  z <- run(Emin = 0, max_change = Inf)
+  expect_lt(min(z$E_seg[, 1, ]), 1e-6)                # without a floor the rule can close a segment
+})

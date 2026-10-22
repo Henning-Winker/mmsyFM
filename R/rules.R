@@ -9,22 +9,30 @@
 #' @param own_q a segment answers for a stock it can catch with >= `own_q` of the stock's highest catchability.
 #' @param close stocks or complexes protected by a closure.
 #' @param close_q métiers with >= `close_q` of the stock's highest catchability are closed.
-#' @param max_change limit on the annual change of each segment's fraction.
+#' @param Emin minimum effort: the lowest fraction of its reference days a
+#'   segment is set to (at and below Blim), default 0.1. F scales with days,
+#'   so the floor puts about `Emin` x the reference F on each stock; 0 lets the
+#'   rule close a segment completely.
+#' @param max_change limit on the annual change of each segment's fraction of
+#'   its reference days, in absolute terms (0.2 = at most 20% of the
+#'   reference days up or down per year), so a closed segment can reopen.
+#'   The first year starts from the reference days (fraction 1).
 #' @param assessed,assign,complexes,complex_index see Details.
 #' @details
 #'
 #' Each year the assessed B/Bmsy of every stock is the true value times a
 #' lognormal assessment error (CV `assess_cv`, AR(1) `assess_rho`). Each
 #' segment's days are a fraction of its reference days (the caps passed to
-#' ms_simulate(), e.g. the status-quo days): the fraction ramps from 0 at
-#' Blim to 1 at Btrig (both relative to Bmsy) of the most depleted stock the
+#' ms_simulate(), e.g. the status-quo days): the fraction ramps from `Emin`
+#' at Blim (and below) to 1 at Btrig (both relative to Bmsy) of the most depleted stock the
 #' segment can catch substantially (any usable metier has >= `own_q` of the
 #' stock's highest catchability).
 #'
 #' Stocks in `close` are protected by a closure instead: the open share of
 #' the metiers that drive them (catchability >= `close_q` of the stock's
 #' highest) follows the same ramp, and they are left out of the effort rule.
-#' `max_change` limits the annual change of each segment's fraction.
+#' `max_change` limits the annual change of each segment's fraction (in
+#' units of the reference days).
 #'
 #' `Btrig` (effort rule) and `Btrig_close` (closure) may be vectors with one
 #' value per row of the simulation, so a grid of triggers runs in one call.
@@ -49,7 +57,7 @@
 #' @return A rule function for the `hcr` argument of [ms_simulate()], with attributes `own`, `drive` and `units`.
 #' @export
 hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rho = 0,
-                       own_q = 0.2, close = NULL, close_q = 0.5, max_change = Inf,
+                       own_q = 0.2, close = NULL, close_q = 0.5, max_change = Inf, Emin = 0.1,
                        Btrig_close = Btrig, assessed = NULL, assign = NULL,
                        complexes = NULL, complex_index = c("biomass", "cpue")) {
   complex_index <- match.arg(complex_index)
@@ -92,9 +100,12 @@ hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rh
     true_u <- (st$B %*% W) / matrix(Bmsy_w, n, U, byrow = TRUE)   # pooled B/Bmsy by unit
     bb <- true_u * exp(sig * eps - sig^2 / 2)                       # assessed
     mult <- matrix(sapply(seq_len(G), function(g)
-      if (any(own[, g])) ramp(apply(bb[, own[, g], drop = FALSE], 1, min), bt) else rep(1, n)), n, G)
-    if (is.finite(max_change) && !is.null(prev))
-      mult <- pmin(pmax(mult, prev * (1 - max_change)), prev * (1 + max_change))
+      if (any(own[, g])) Emin + (1 - Emin) * ramp(apply(bb[, own[, g], drop = FALSE], 1, min), bt)
+      else rep(1, n)), n, G)
+    if (is.finite(max_change)) {
+      if (is.null(prev)) prev <- matrix(1, n, G)   # start from the reference (status-quo) days
+      mult <- pmin(pmax(mult, prev - max_change), prev + max_change)   # absolute: zero is not a trap
+    }
     prev <<- mult
     if (!length(ic)) return(mult)
     opm <- matrix(1, n, M)

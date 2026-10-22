@@ -145,7 +145,7 @@ Default \code{NULL}: hard without process error (equilibrium and tuning),
 p = 8 with process error (stochastic runs).}
 }
 \value{
-An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, and the system.
+An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, the system, and \code{init} (the year-0 biomass and days, rows x stocks / segments).
 }
 \description{
 Annual Schaefer growth on start-of-year biomass; catches removed

@@ -28,5 +28,6 @@ A data frame as \code{\link[=ms_yield_curve]{ms_yield_curve()}}.
 The classical multispecies model with one effort and a fixed catchability
 vector, calibrated so that it reproduces the fishing mortality of a
 reference state: q_i = F_i / E, with B_i/K_i = 1 - q_i E / r_i at
-equilibrium.
+equilibrium. The F cap of the system (\code{F_cap}) applies as in
+\code{\link[=ms_simulate]{ms_simulate()}}, so no stock falls below 2 - F_cap Bmsy.
 }

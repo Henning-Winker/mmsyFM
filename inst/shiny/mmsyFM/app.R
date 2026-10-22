@@ -38,7 +38,8 @@ tips <- list(
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
   hs_btrig = "When an assessed stock falls below this B/Bmsy, the days of the segments that catch it are cut: full days at the trigger, a linear ramp down to zero at Blim (0.25 Bmsy). The most depleted stock a segment catches sets its cut.",
   hs_btrig_close = "For the closure stock: the metiers that drive it are closed for a share of the time that ramps from 0 at this trigger to fully closed at Blim. It replaces the effort rule for that stock.",
-  hs_maxchange = "Largest change in a segment's days from one year to the next (0.2 = plus or minus 20%). 1 = no limit.",
+  hs_emin = "The rule never sets a segment below this share of its status-quo days (at and below Blim): a minimum effort instead of a closure. F scales with days, so 0.1 puts about 0.1 x the status-quo F on each stock. 0 allows a full closure.",
+  hs_maxchange = "Largest change in a segment's days from one year to the next, as a share of its status-quo days (0.2 = up or down by at most 20% of the status-quo days a year). A closed segment reopens at this pace once its stocks recover. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
   hs_impl = "Implementation error: the days fished differ from the days allowed by a lognormal error with this CV.",
@@ -62,12 +63,22 @@ tips <- list(
 info <- function(id, label) tagList(label, tags$span(class = "info", `data-toggle` = "tooltip",
   `data-placement` = "right", `data-html` = "true", title = tips[[id]], HTML("&#9432;")))
 
+guide_html <- function() {
+  f <- system.file("guide", "how-it-works.md", package = "mmsyFM")
+  if (!nzchar(f) || !requireNamespace("commonmark", quietly = TRUE))
+    return(p("The guide needs the commonmark package; see also vignette('how-it-works', 'mmsyFM')."))
+  HTML(commonmark::markdown_html(paste(readLines(f, encoding = "UTF-8"), collapse = "\n"), extensions = TRUE))
+}
+
 ui <- navbarPage(
   "mmsyFM", id = "tabs",
   header = tags$head(tags$style(HTML(
     "body { font-size: 14px; } .well { background: #f7f7f5; } h4 { margin-top: 18px; }
      .note { color: #52514e; font-size: 13px; }
      .draft { background: #fff6e0; border-left: 3px solid #e0a020; padding: 6px 8px; }
+     .guide { font-size: 15px; line-height: 1.55; max-width: 900px; padding-bottom: 40px; }
+     .guide pre { background: #f7f7f5; border: none; font-size: 13px; }
+     .guide table { margin: 10px 0; } .guide td, .guide th { padding: 4px 10px; border-bottom: 1px solid #ddd; }
      .info { color: #2a5db0; cursor: help; margin-left: 5px; font-weight: normal; }
      .tooltip-inner { max-width: 340px; text-align: left; font-size: 13px; padding: 8px 10px; }")),
     tags$script(HTML("$(function() { $('body').tooltip({ selector: '[data-toggle=\\'tooltip\\']', container: 'body' }); });"))),
@@ -148,7 +159,8 @@ ui <- navbarPage(
         sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.6, 0.05),
         uiOutput("hs_close"),
         sliderInput("hs_btrig_close", info("hs_btrig_close", "Closure trigger (B/Bmsy)"), 0.5, 5, 3, 0.25),
-        sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change (Inf = none)"), 0.05, 1, 1, 0.05),
+        sliderInput("hs_emin", info("hs_emin", "Minimum effort (share of status-quo days)"), 0, 0.5, 0.1, 0.05),
+        sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change in days (1 = no limit)"), 0.05, 1, 0.2, 0.05),
         h5("Uncertainty"),
         sliderInput("hs_lag", info("hs_lag", "Data lag (years)"), 0, 3, 2, 1),
         sliderInput("hs_assess", info("hs_assess", "Assessment error CV"), 0, 0.5, 0.2, 0.05),
@@ -176,6 +188,10 @@ ui <- navbarPage(
         p(class = "note", "Uses the rule and uncertainty settings of tab 5. Each grid point sees the same random errors."),
         actionButton("run_tu", "Tune", class = "btn-primary")),
       mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table"))))
+
+  # ---- Guide -------------------------------------------------------------------
+  , tabPanel("Guide",
+    fluidRow(column(8, offset = 1, class = "guide", guide_html())))
 )
 
 server <- function(input, output, session) {
@@ -326,7 +342,7 @@ server <- function(input, output, session) {
   rule_args <- reactive(list(Btrig = input$hs_btrig, Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess,
-                             max_change = if (input$hs_maxchange >= 1) Inf else input$hs_maxchange))
+                             max_change = if (input$hs_maxchange >= 1) Inf else input$hs_maxchange, Emin = input$hs_emin))
   sim_args <- reactive(c(list(gamma = input$gamma, capacity = cap(), impl_cv = input$hs_impl,
                               effort_cv = input$hs_effort, effort_rho = 0.5, hcr_lag = input$hs_lag),
                          proc_args(input, rv$sys)))
@@ -359,7 +375,7 @@ server <- function(input, output, session) {
         close = ra$close, close_triggers = if (is.null(ra$close)) NULL else ct,
         risk = c(worst_P_below_Bpa = input$tu_risk), E_ref = sq$E_seg, B_init = sq$B,
         nsim = input$tu_nsim, years = input$hs_years, eval_years = max(1, input$hs_years - 19):input$hs_years,
-        assess_cv = input$hs_assess, max_change = ra$max_change), sim_args())))
+        assess_cv = input$hs_assess, max_change = ra$max_change, Emin = ra$Emin), sim_args())))
   })
   output$tu_best <- renderTable({ b <- tu()$best; validate(need(!is.null(b), "No grid point meets the risk limit.")); b }, striped = TRUE)
   output$tu_table <- renderTable(tu()$table, striped = TRUE)

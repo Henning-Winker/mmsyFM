@@ -16,6 +16,7 @@ ms_condition(
   damp = 0.8,
   years = 300,
   verbose = TRUE,
+  recost = TRUE,
   ...
 )
 }
@@ -41,6 +42,11 @@ iterations.}
 \item{years}{years to equilibrium.}
 
 \item{verbose}{print progress.}
+
+\item{recost}{if \code{TRUE} (default), each metier's daily cost keeps its
+ratio to the metier's unfished revenue rate as catchability changes, so
+a metier whose main stock gets a lower catchability does not keep a
+cost sized for the old one (which would leave it unfished).}
 
 \item{...}{passed to \code{\link[=ms_simulate]{ms_simulate()}}.}
 }

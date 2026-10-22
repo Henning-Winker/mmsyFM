@@ -21,6 +21,7 @@ ms_tune_hcr(
   Blim = 0.25,
   assess_cv = 0.2,
   max_change = Inf,
+  Emin = 0.1,
   assessed = NULL,
   assign = NULL,
   complexes = NULL,
@@ -49,7 +50,7 @@ or c(worst_P_assessed = 0.05) (only the assessed stocks)}
 
 \item{nsim, years, eval_years, seed}{simulations, years, years evaluated, seed.}
 
-\item{Blim, assess_cv, max_change, complexes, complex_index, assign}{passed to \code{\link[=hcr_effort]{hcr_effort()}}.}
+\item{Blim, assess_cv, max_change, Emin, complexes, complex_index, assign}{passed to \code{\link[=hcr_effort]{hcr_effort()}}.}
 
 \item{assessed}{stocks with an assessment (default all)}
 

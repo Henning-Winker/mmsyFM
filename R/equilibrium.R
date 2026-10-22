@@ -140,7 +140,8 @@ ms_yield_curve <- function(sys, E_ref, mult = c(0, 10^seq(-1.5, log10(8), length
 #' The classical multispecies model with one effort and a fixed catchability
 #' vector, calibrated so that it reproduces the fishing mortality of a
 #' reference state: q_i = F_i / E, with B_i/K_i = 1 - q_i E / r_i at
-#' equilibrium.
+#' equilibrium. The F cap of the system (`F_cap`) applies as in
+#' [ms_simulate()], so no stock falls below 2 - F_cap Bmsy.
 #'
 #' @param sys an `ms_system`.
 #' @param ref a reference state from [ms_open_access()] or
@@ -153,7 +154,8 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
   E0 <- sum(ref$E_seg)
   q <- ref$FFmsy * sys$r / 2 / E0
   E <- c(0, mult) * E0
-  hE <- pmin(outer(E, q), 1)                       # harvest rate (q is per day, in h units)
+  h_max <- pmin(rep_len(sys$F_cap %||% Inf, sys$S) * sys$r / 2, 1)   # F cap, as in ms_simulate()
+  hE <- pmin(outer(E, q), matrix(h_max, length(E), sys$S, byrow = TRUE))  # harvest rate (q per day)
   BK <- pmax(1 - sweep(hE, 2, sys$r, "/"), 0)
   out <- data.frame(mult = c(0, mult), E = E, yield = rowSums(hE * sweep(BK, 2, sys$K, "*")), profit = NA,
                     min_BBmsy = apply(2 * BK, 1, min), n_below_Bpa = rowSums(2 * BK < Bpa))
@@ -186,6 +188,10 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
 #' @param damp damping exponent of the catchability update.
 #' @param years years to equilibrium.
 #' @param verbose print progress.
+#' @param recost if `TRUE` (default), each metier's daily cost keeps its
+#'   ratio to the metier's unfished revenue rate as catchability changes, so
+#'   a metier whose main stock gets a lower catchability does not keep a
+#'   cost sized for the old one (which would leave it unfished).
 #' @param ... passed to [ms_simulate()].
 #' @return The conditioned `ms_system`, with attribute `conditioning`: a data
 #'   frame of targets and achieved B/Bmsy and F/Fmsy, and the catchability
@@ -193,7 +199,7 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
 #' @export
 ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 1.5,
                          outer = 4, inner = 12, tol = 0.02, damp = 0.8, years = 300,
-                         verbose = TRUE, ...) {
+                         verbose = TRUE, recost = TRUE, ...) {
   idx <- match(names(target), sys$species)
   idx[is.na(idx)] <- match(names(target)[is.na(idx)], sys$code)
   if (anyNA(idx)) stop("unknown stock(s) in `target`: ", paste(names(target)[is.na(idx)], collapse = ", "), call. = FALSE)
@@ -201,6 +207,8 @@ ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 
   on <- which(!is.na(tg))
   mult_q <- rep(1, sys$S)
   dep0 <- sys$dep_init %||% rep(1, sys$S); dep0[on] <- tg[on] / 2; sys$dep_init <- dep0
+  rev0 <- function(s) setNames(as.vector(s$Q %*% (s$price * s$K * colMeans(s$avail))), rownames(s$Q))
+  cost_ratio <- sys$cost / rev0(sys)
   eq <- function(s) ms_status_quo(s, capacity = cap, gamma = gamma, years = years, ...)
   for (o in seq_len(outer)) {
     for (i in seq_len(inner)) {
@@ -214,6 +222,7 @@ ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 
       f <- pmin(pmax(f, 0.2), 5)
       sys$Q[, on] <- sweep(sys$Q[, on, drop = FALSE], 2, f, "*")
       mult_q[on] <- mult_q[on] * f
+      if (recost) { sys$rev0 <- rev0(sys); sys$cost <- setNames(cost_ratio * sys$rev0, names(sys$cost)) }
     }
     if (o == outer) break
     sh <- st$E_seg / sum(st$E_seg)

@@ -50,3 +50,18 @@ test_that("ms_condition moves a stock to its target", {
   expect_lt(abs(d$BBmsy[d$code == "GRO"] - 1.0), 0.05)
   expect_gt(d$q_mult[d$code == "GRO"], 0)
 })
+
+test_that("every Gulf metier is fished at the status quo", {
+  sys <- got_system_draft()
+  cap <- matrix(c(450, 225, 3000), 1, 3)
+  x <- ms_simulate(sys, cap, 300, capacity = cap, gamma = 1.5, avg_years = 20)
+  days <- colMeans(x$E_metier[, 1, ])
+  expect_true(all(days > 10))
+})
+
+test_that("the shared-q curve applies the F cap (no stock below 0.05 Bmsy)", {
+  sys <- got_system_draft()
+  sq <- ms_status_quo(sys, capacity = c(450, 225, 3000), gamma = 1.5, years = 200)
+  sc <- ms_shared_q_curve(sys, sq, mult = c(1, 5, 20))
+  expect_gt(min(attr(sc, "BBmsy")), 0.049)
+})

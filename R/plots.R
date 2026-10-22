@@ -43,15 +43,18 @@ ref_F <- function() geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewid
 #' background follows the WKREF/GFCM convention of `FLRef::plotWKREF()`,
 #' with zones cut by the harvest control rule: below Bthresh, red above the
 #' HCR line and yellow below it; above Bthresh, orange above and green
-#' below; a dark overlay below Blim. The HCR line is F = 0 up to `Bclose`,
-#' a linear ramp to `Ftgt` at `Btrigger`, and `Ftgt` above.
+#' below; a dark overlay below Blim. The HCR line is `Fmin` up to `Bclose`,
+#' a linear ramp to `Ftgt` at `Btrigger`, and `Ftgt` above (as
+#' `FLRef::plotGFCM(fmin = 0.1, bclose = 0.25, btrigger = 0.8)`).
 #'
 #' @param states named list of states with `BBmsy` and `FFmsy` (e.g. from
 #'   [ms_status_quo()] or [ms_optimise()]).
 #' @param sys an `ms_system`.
 #' @param Bpa,Blim reference points relative to Bmsy (`Bpa` is Bthresh).
-#' @param Btrigger,Ftgt,Bclose HCR trigger, target F (relative to Fmsy) and
-#'   biomass at which F reaches zero (default `Blim`, as in [hcr_effort()]).
+#' @param Btrigger,Ftgt,Bclose,Fmin HCR trigger, target F (relative to Fmsy),
+#'   biomass at and below which F is at its minimum (default `Blim`, as in
+#'   [hcr_effort()]) and that minimum F (default 0.1, the minimum effort
+#'   `Emin` of [hcr_effort()]).
 #' @param zones `"hcr"` (coloured zones and the HCR line) or `"simple"`.
 #' @param palette zone colours: `"pastel"` (default) or `"flref"` (the
 #'   saturated colours of `FLRef::plotWKREF()`).
@@ -65,7 +68,7 @@ ref_F <- function() geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewid
 #' plot_kobe(list("Status quo" = sq), sys)
 #' }
 plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25, Btrigger = 0.8, Ftgt = 1,
-                      Bclose = Blim, zones = c("hcr", "simple"), palette = c("pastel", "flref"),
+                      Bclose = Blim, Fmin = 0.1, zones = c("hcr", "simple"), palette = c("pastel", "flref"),
                       alpha = 1) {
   zones <- match.arg(zones); palette <- match.arg(palette)
   zc <- if (palette == "pastel")
@@ -88,7 +91,8 @@ plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25, Btrigger = 0.8, Ftgt 
       geom_point(aes(colour = group), size = 2.6, stroke = 0) +
       scale_colour_manual(values = ms_cols, name = NULL)
   } else {
-    hcr <- function(b) ifelse(b <= Bclose, 0, ifelse(b < Btrigger, Ftgt * (b - Bclose) / (Btrigger - Bclose), Ftgt))
+    hcr <- function(b) ifelse(b <= Bclose, Fmin, ifelse(b < Btrigger,
+      Fmin + (Ftgt - Fmin) * (b - Bclose) / (Btrigger - Bclose), Ftgt))
     zone <- function(x0, x1, lower, fill) {
       b <- sort(unique(c(seq(x0, x1, length.out = 200), Bclose, Btrigger)))
       b <- b[b >= x0 & b <= x1]
@@ -180,8 +184,13 @@ plot_projection <- function(runs, what = c("BBmsy", "FFmsy", "yield"), Bpa = 0.5
     x <- runs[[nm]]; ny <- dim(x$B)[1]
     a <- switch(what, BBmsy = sweep(x$B, 3, sys$K / 2, "/"), FFmsy = ffmsy(x$F, sys$r), yield = x$C)
     q <- q90(a, c(1, 3))
-    data.frame(run = nm, year = rep(seq_len(ny), sys$S), species = rep(sys$code, each = ny),
-               lo = as.vector(q[1, , ]), med = as.vector(q[2, , ]), hi = as.vector(q[3, , ]))
+    d <- data.frame(run = nm, year = rep(seq_len(ny), sys$S), species = rep(sys$code, each = ny),
+                    lo = as.vector(q[1, , ]), med = as.vector(q[2, , ]), hi = as.vector(q[3, , ]))
+    if (what == "BBmsy" && !is.null(x$init)) {                       # year 0: the common starting point
+      q0 <- apply(sweep(matrix(x$init$B, ncol = sys$S), 2, sys$K / 2, "/"), 2, stats::quantile, c(0.05, 0.5, 0.95))
+      d <- rbind(data.frame(run = nm, year = 0, species = sys$code, lo = q0[1, ], med = q0[2, ], hi = q0[3, ]), d)
+    }
+    d
   }))
   d$species <- factor(d$species, sys$code); d$run <- factor(d$run, names(runs))
   ylab <- c(BBmsy = "B / Bmsy", FFmsy = "F / Fmsy", yield = "Catch")[[what]]
@@ -207,7 +216,12 @@ plot_fleet <- function(runs) {
   d <- do.call(rbind, lapply(names(runs), function(nm) {
     x <- runs[[nm]]; ny <- dim(x$B)[1]
     qe <- q90(x$E_seg, c(1, 3)); qy <- q90(apply(x$C, 1:2, sum), 1)
-    rbind(data.frame(run = nm, panel = paste("Days:", rep(names(sys$segments), each = ny)),
+    e0 <- if (is.null(x$init)) NULL else {                           # year 0: the common starting point
+      q0 <- apply(matrix(x$init$E_seg, ncol = sys$G), 2, stats::quantile, c(0.05, 0.5, 0.95))
+      data.frame(run = nm, panel = paste("Days:", names(sys$segments)), year = 0,
+                 lo = q0[1, ], med = q0[2, ], hi = q0[3, ])
+    }
+    rbind(e0, data.frame(run = nm, panel = paste("Days:", rep(names(sys$segments), each = ny)),
                      year = rep(seq_len(ny), sys$G), lo = as.vector(qe[1, , ]),
                      med = as.vector(qe[2, , ]), hi = as.vector(qe[3, , ])),
           data.frame(run = nm, panel = "Total yield", year = seq_len(ny), lo = qy[1, ], med = qy[2, ], hi = qy[3, ]))

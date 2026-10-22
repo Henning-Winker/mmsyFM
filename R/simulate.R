@@ -78,7 +78,7 @@
 #'   Default `NULL`: hard without process error (equilibrium and tuning),
 #'   p = 8 with process error (stochastic runs).
 #' @param keep    "final" (equilibrium summaries) or "all" (trajectories)
-#' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, and the system.
+#' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, the system, and `init` (the year-0 biomass and days, rows x stocks / segments).
 #' @export
 ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                         behaviour = c("dynamic", "fixed"),
@@ -105,6 +105,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   B <- if (is.null(B_init)) K * matrix(sys$dep_init %||% 1, n, S, byrow = TRUE)
        else matrix(B_init, n, S, byrow = is.null(dim(B_init)))
   E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
+  init <- list(B = B, E_seg = E_seg)                 # year-0 state (for plots of projections)
   open_fun <- if (is.function(open)) open else function(y) open
   F_cap <- rep_len(F_cap, sys$S)
   h_cap <- F_cap * sys$r / 2                  # cap on the annual harvest rate h = 1 - exp(-F)
@@ -249,7 +250,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
     }
   }
   out <- list(B = Bk, C = Ck, F = Fk, E_metier = Ek, E_seg_metier = Egk, E_seg = Esk, revenue = Rk, profit = Pk,
-              caps = caps, sys = sys,
+              caps = caps, sys = sys, init = init,
               settings = list(gamma = gamma, behaviour = behaviour, info = info, phi = phi,
                               years = years, proc_cv = proc_cv))
   class(out) <- "ms_sim"
