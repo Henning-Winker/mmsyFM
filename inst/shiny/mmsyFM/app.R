@@ -67,7 +67,16 @@ guide_html <- function() {
   f <- system.file("guide", "how-it-works.md", package = "mmsyFM")
   if (!nzchar(f) || !requireNamespace("commonmark", quietly = TRUE))
     return(p("The guide needs the commonmark package; see also vignette('how-it-works', 'mmsyFM')."))
-  HTML(commonmark::markdown_html(paste(readLines(f, encoding = "UTF-8"), collapse = "\n"), extensions = TRUE))
+  md <- paste(readLines(f, encoding = "UTF-8"), collapse = "\n")
+  # protect LaTeX ($$...$$ and $...$) from the Markdown renderer, then restore it for MathJax
+  rx <- "\\$\\$[^$]+\\$\\$|\\$[^$\n]+\\$"
+  math <- regmatches(md, gregexpr(rx, md))[[1]]
+  key <- sprintf("MATHXX%03dXX", seq_along(math))
+  regmatches(md, gregexpr(rx, md)) <- list(key)
+  h <- commonmark::markdown_html(md, extensions = TRUE)
+  esc <- function(x) gsub(">", "&gt;", gsub("<", "&lt;", gsub("&", "&amp;", x, fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  for (i in seq_along(math)) h <- sub(key[i], esc(math[i]), h, fixed = TRUE)
+  HTML(h)
 }
 
 ui <- navbarPage(
@@ -191,6 +200,11 @@ ui <- navbarPage(
 
   # ---- Guide -------------------------------------------------------------------
   , tabPanel("Guide",
+    tags$script(type = "text/x-mathjax-config",
+      "MathJax.Hub.Config({ tex2jax: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']], processEscapes: true } });"),
+    withMathJax(),
+    tags$script(HTML("$(document).on('shown.bs.tab', 'a[data-value=\\'Guide\\']', function() {
+      if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]); });")),
     fluidRow(column(8, offset = 1, class = "guide", guide_html())))
 )
 

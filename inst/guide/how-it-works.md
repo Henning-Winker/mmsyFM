@@ -16,7 +16,8 @@ fixed share of a single effort pool, with a model of fleet behaviour.
 
 The model has four layers: **stocks**, **fleet**, **behaviour** and
 **management**. The sections below describe each, then how a system is
-calibrated ("tuned"), and how the analyses work.
+calibrated ("tuned"), and how the analyses work. The equations are in
+Appendix A and the search algorithms in Appendix B.
 
 ## 2. Stocks
 
@@ -252,3 +253,152 @@ median average annual variation of total days.
 | Uncertainty helpers | `proc_sd_from_r()`, `relsig_jabba()`, `ffmsy()` |
 | Plots | `plot_kobe()`, `plot_yield_curves()`, `plot_projection()`, `plot_fleet()`, `plot_catchability()` |
 | App | `run_app()` |
+
+## Appendix A. Model equations
+
+Notation: stocks $s$, metiers $j$, segments $g$, years $t$, months $m$.
+
+### A1. Stock dynamics (discrete Schaefer with monthly fishing)
+
+Within a year, each month removes catch from the biomass (Baranov, no growth
+within the year):
+
+$$F_{s,m} = a_{s,m} \sum_j q_{js} \tilde E_{j,m}, \qquad C_{s,m} = B_{s,m} \left(1 - e^{-F_{s,m}}\right), \qquad B_{s,m+1} = B_{s,m} - C_{s,m}$$
+
+with $a_{s,m}$ the seasonal availability of stock $s$, $q_{js}$ the
+catchability of metier $j$ and $\tilde E_{j,m}$ the effective days (days x
+efficiency x open share). Growth is added once a year on the start-of-year
+biomass, with process error $\eta$:
+
+$$B_{s,t+1} = \left( B_{s,t} + r_s B_{s,t} \left(1 - \frac{B_{s,t}}{K_s}\right) - C_{s,t} \right) e^{\eta_{s,t}}, \qquad C_{s,t} = \sum_m C_{s,m}$$
+
+### A2. Reference points and F/Fmsy
+
+A year of fishing removes the share $h_{s,t} = 1 - e^{-F_{s,t}}$ with
+$F_{s,t} = \sum_m F_{s,m}$. The deterministic equilibrium is
+
+$$\frac{B_s}{K_s} = 1 - \frac{h_s}{r_s}, \qquad h_{MSY} = \frac{r_s}{2}, \qquad B_{MSY} = \frac{K_s}{2}, \qquad MSY = \frac{r_s K_s}{4}$$
+
+so that, with $F/F_{MSY} \equiv h / h_{MSY}$,
+
+$$\frac{B}{B_{MSY}} + \frac{F}{F_{MSY}} = 2 .$$
+
+### A3. F cap
+
+With cap $\phi_s$ (units of $F_{MSY}$), the largest annual harvest rate is
+$h^{max}_s = \min(\phi_s r_s / 2, 1)$, i.e. $F^{max}_s = -\ln(1 - h^{max}_s)$,
+applied monthly as $F^{max}_s / 12$. The equilibrium floor is
+$B/B_{MSY} \ge 2 - \phi_s$. The realised monthly F is
+
+$$F = \min\left(F^{nom}, F^{max}\right) \quad \text{(hard)}, \qquad F = \left( (F^{nom})^{-p} + (F^{max})^{-p} \right)^{-1/p} \quad \text{(smooth, } p = 8\text{)} .$$
+
+### A4. Process error
+
+$$\eta_{s,t} = \rho \eta_{s,t-1} + \sqrt{1 - \rho^2} \varepsilon_{s,t}, \qquad \varepsilon_{s,t} \sim N\left(0, \sigma_{s,t}^2\right)$$
+
+centred on the median (as above) or on the mean ($\eta - \sigma^2/2$). The SD
+depends on r and on depletion (JABBA proc.dyn):
+
+$$\sigma_{s,t} = \sigma_s^0 \frac{g(B_{s,t}/B_{MSY,s})}{g(1)}, \qquad \sigma_s^0 = 0.05 \left(\frac{r_s}{0.057}\right)^{0.68}, \qquad g(x) = a + \frac{1 - a}{1 + (x/c)^d}$$
+
+with $a = 0.128$, $c = 0.223$, $d = 1.326$, capped at 1. Correlation between
+stocks mixes a common draw: $\varepsilon_s = \sqrt{1-\omega} z_s + \sqrt{\omega} z_0$.
+
+### A5. Effort allocation: the profit preference
+
+The expected revenue per effective day of metier $j$ in month $m$, at
+current biomass, is
+
+$$V_{j,m} = \sum_s p_s q_{js} a_{s,m} B_{s,m}$$
+
+with price $p_s$. A vessel of segment $g$ (efficiency $e_{gj}$, times the
+mean efficiency $\bar v_g$ of its active vessels) expects the profit per day
+$e_{gj} \bar v_g V_{j,m} - \kappa_g c_j$, with $c_j$ the daily cost of the
+metier and $\kappa_g$ the segment's cost multiplier. Its utility is
+
+$$u_{gj} = o_{j} \max\left(e_{gj} \bar v_g V_{j,m} - \kappa_g c_j , 0\right)^{\gamma}$$
+
+($o_j$ the open share, $\gamma$ the strength of the preference; $\gamma = 0$
+gives $u = 1$ for every open metier). With home metiers $H_g$ and loyalty
+$\lambda_g$, the segment's days $E_{g,m}$ are allocated as
+
+$$E_{gj,m} = E_{g,m} \left( \lambda_g \frac{u_{gj} 1[j \in H_g]}{\sum_{k \in H_g} u_{gk}} + (1 - \lambda_g) \frac{u_{gj}}{\sum_k u_{gk}} \right), \qquad \tilde E_{j,m} = o_j \sum_g e_{gj} \bar v_g E_{gj,m}$$
+
+A segment's days are spread over the months by a fixed seasonal pattern.
+
+### A6. Entry and exit (vessel heterogeneity)
+
+Vessel efficiency is lognormal with mean 1:
+$v \sim LN(\mu, \sigma_v^2)$, $\sigma_v^2 = \ln(1 + CV^2)$, $\mu = -\sigma_v^2 / 2$.
+From last year's revenue $R_g$ and cost $D_g$ per day of a vessel of mean
+efficiency (weighted by its allocation), a vessel breaks even when
+$v \ge v^* = D_g / R_g$. The share of vessels that break even, and the mean
+efficiency of the active ones, are
+
+$$P_g = 1 - \Phi\left(\frac{\ln v^* - \mu}{\sigma_v}\right), \qquad \bar v_g = \frac{1}{P_g} \Phi\left(\frac{\mu + \sigma_v^2 - \ln v^*}{\sigma_v}\right)$$
+
+and the segment's days move towards the days of those vessels, within the
+cap $\bar E_g$ (management) and the capacity $\mathcal{K}_g$:
+
+$$E_{g,t+1} = E_{g,t} + \varphi \left( \min\left(\bar E_g, \mathcal{K}_g P_g\right) - E_{g,t} \right), \qquad \varphi = 0.5 .$$
+
+### A7. Economics
+
+Revenue and cost of a year, and profit:
+
+$$R_t = \sum_s p_s C_{s,t}, \qquad D_t = \sum_g \kappa_g \sum_j c_j E_{gj,t}, \qquad \Pi_t = R_t - D_t .$$
+
+Without a `cost` column, the daily cost of a metier is a share (0.4) of its
+unfished revenue rate, $c_j = 0.4 \sum_s p_s q_{js} K_s \bar a_s$.
+
+### A8. Harvest control rule (effort)
+
+The assessed status is $\hat b_{u,t} = b_{u,t-L} e^{\epsilon_{u,t}}$ with
+$b = B/B_{MSY}$ of unit $u$ (stock or complex), lag $L$ and lognormal error
+$\epsilon$ (CV `assess_cv`, optional AR(1)). Segment $g$ answers for the
+units $U_g$ it catches substantially
+($\max_{j \in H_g} q_{js} \ge \theta \max_j q_{js}$, $\theta$ = `own_q`). Its
+fraction of the reference (status-quo) days is
+
+$$f_{g,t} = E_{min} + (1 - E_{min}) \min\left(1, \max\left(0, \frac{\min_{u \in U_g} \hat b_{u,t} - B_{lim}}{B_{trig} - B_{lim}}\right)\right)$$
+
+limited to $|f_{g,t} - f_{g,t-1}| \le \Delta$ (with $f_{g,0} = 1$). The cap is
+$\bar E_{g,t} = f_{g,t} E^{ref}_g e^{\xi_{g,t}}$ with implementation error
+$\xi$. A closure for unit $u$ sets the open share of the metiers that drive it
+($q_{js} \ge$ `close_q` $\max_j q_{js}$) to the same ramp, from 0 at
+$B_{lim}$ to 1 at its own trigger.
+
+### A9. Calibration
+
+`ms_tune()` solves the log cost multipliers $\log \kappa_g$ so that the
+open-access equilibrium meets $G$ conditions: the day shares of the first
+$G - 1$ segments and one status target. `ms_condition()` updates each targeted
+stock's catchability column by
+
+$$q_{js} \leftarrow q_{js} \left(\frac{2 - b^*_s}{F_s / F_{MSY,s}}\right)^{0.8}$$
+
+with target $b^*_s$ (from $B/B_{MSY} + F/F_{MSY} = 2$), keeping each metier's
+cost proportional to its unfished revenue, and re-runs `ms_tune()` with the
+total days fixed.
+
+## Appendix B. Algorithms
+
+* **Equilibria** are found by simulation: a run of 200-500 years, averaged
+  over its last 10-30 years. Many scenarios (rows) run in one vectorised call.
+* **`ms_optimise()`**: a zooming grid search over the caps in
+  $\log(1 + E)$. Each round runs $n^d$ candidates ($d$ levers) to
+  equilibrium in one call, keeps the best feasible one (every stock at or
+  above Bpa) and shrinks the box around it (5 rounds). No bisection or
+  gradient method is used: with fleet behaviour the safeguard is not
+  monotone in effort (cutting effort can concentrate it on the most valuable
+  ground and lower the weakest stock), and the objective has flat stretches
+  and small kinks from vessel exit.
+* **`ms_tune()`**: Newton's method on $\log \kappa_g$ with a numerical
+  Jacobian ($G + 1$ perturbed systems in one call), bounded steps, and the
+  best iterate kept.
+* **`ms_condition()`**: the fixed-point update of A9, alternated with
+  `ms_tune()`; simulations start at the targets so slow stocks need not
+  settle from K.
+* **`ms_tune_hcr()`**: a grid of triggers run with common random numbers
+  (every trigger sees the same process, assessment and implementation
+  errors); the highest yield that meets the risk limit is chosen.
