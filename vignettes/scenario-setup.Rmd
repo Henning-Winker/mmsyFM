@@ -1,0 +1,247 @@
+---
+title: "Setting up a simulation scenario: Gulf of Thailand"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Setting up a simulation scenario: Gulf of Thailand}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7.5, fig.height = 4.5, dpi = 96)
+```
+
+This vignette builds a simulation scenario from scratch, using the Gulf of
+Thailand draft (`got_system_draft()`) as the example: the four input tables,
+two ways to derive catchability (an expert overlap matrix or a habitat
+landscape), the fleet settings that shape behaviour, and the calibration of
+the starting point to known fleet shares and stock status. The model itself
+is described in `vignette("how-it-works")`.
+
+> **The Gulf of Thailand system is a draft.** Prices, gear overlaps, habitat
+> preferences and costs are indicative; the 2024 depletions are those of the
+> mse.SEA application.
+
+```{r}
+library(mmsyFM)
+library(ggplot2)
+ext <- function(f) read.csv(system.file("extdata", f, package = "mmsyFM"), check.names = FALSE)
+```
+
+## 1. The four tables
+
+A system is built by `ms_system()` from four tables (or read from CSV files
+with `read_ms_system()`).
+
+### Species
+
+One row per stock: growth rate `r`, carrying capacity `K` and a relative
+`price`; optionally seasonality, the F cap and the starting depletion.
+
+```{r}
+species <- ext("got_species.csv")
+species[, c("species", "code", "group", "r", "K", "price", "F_cap", "dep_init", "dep_2024")]
+```
+
+* `r` and `K` are the 18 mse.SEA groups; anchovies and sardines were added.
+* `F_cap = 1.95` (units of Fmsy) is the persistence floor: no stock settles
+  below 0.05 Bmsy (`vignette("how-it-works")`, section 2).
+* `dep_2024` is the mse.SEA 2024 depletion (B/K), the target of the
+  calibration in section 4; `dep_init` is the starting depletion of
+  simulations, written by that calibration.
+
+### Metiers and segments
+
+```{r}
+ext("got_metiers.csv")[, c("metier", "tactic", "ground")]
+segments <- ext("got_segments.csv")
+segments
+```
+
+Three segments with **coastal zoning** (loyalty 1: a segment fishes only its
+own metiers):
+
+* **trawl**: inner (15-30 m, mud), mid (30-50 m) and outer shelf (50-80 m);
+* **purse seine**: a mackerel/scad seine and a light-luring anchovy seine;
+* **small-scale fisheries (SSF)**: five coastal tactics. SSF is the
+  generalist, switching between tactics by profit, with a low efficiency
+  (0.075 of an industrial vessel-day) and a matching low daily cost, and it
+  fishes 82% of the days.
+
+`capacity` is the registered days of each segment; `share_target` the share
+of days the calibration aims at.
+
+## 2. Catchability
+
+The catchability matrix (metiers x stocks) says which metiers catch which
+stocks and how strongly. There are two ways to build it.
+
+### Route A: an expert overlap matrix
+
+Score each metier-stock pair as main fishery (1), by-catch (0.2) or none
+(0), and scale by r (so a day has a similar F/Fmsy effect on every stock).
+This is how the draft was started; the stored matrix is that start after
+calibration (section 4):
+
+```{r, fig.height = 4}
+sys <- got_system_draft()
+plot_catchability(sys)
+```
+
+### Route B: a habitat landscape
+
+`ms_landscape()` derives catchability from where stocks live and where and
+how metiers fish:
+
+* **seabed cells** with depth, substrate and area;
+* **habitat preferences** of each stock: a depth preference (mean, SD) and
+  substrate weights;
+* **grounds** of each metier: a depth range and substrates;
+* **gear selectivity** of each metier for each stock.
+
+```{r}
+cells <- ext("got_cells.csv")
+habitat <- ext("got_habitat.csv")
+grounds <- ext("got_grounds.csv")
+sel <- ext("got_selectivity.csv")
+head(habitat)
+grounds
+```
+
+The catchability is `q0 x selectivity x` the stock's density on the ground
+relative to its average density:
+
+```{r, fig.height = 6}
+Q_land <- ms_landscape(cells, habitat, grounds, sel)
+plot_landscape(Q_land, cells)
+```
+
+Each stock's distribution over depth. Comparing the shape of each stock's
+column (relative to its maximum) with the expert matrix:
+
+```{r}
+nrm <- function(m) { m <- unclass(m); attributes(m) <- attributes(m)[c("dim", "dimnames")]
+                     sweep(m, 2, apply(m, 2, max), "/") }
+L <- nrm(Q_land); E <- nrm(sys$Q[rownames(L), ])
+round(cor(as.vector(L), as.vector(E)), 2)
+```
+
+The landscape route is easier to defend and to change (e.g. a stock that
+moves deeper, a trawl ban inside 15 m), and it spreads catchability smoothly
+across grounds where the expert matrix has only 1, 0.2 and 0. Either way,
+the **level** of each stock's catchability column is set by the calibration
+to the stock's status; the matrix provides its **shape**.
+
+To build a system from the landscape, pass it as the catchability:
+
+```{r}
+sys_land <- ms_system(species, ext("got_metiers.csv")[, c("metier", "tactic", "ground")],
+                      Q_land, segments)
+sys_land
+```
+
+(Without a `cost` column, each metier's daily cost is 0.4 of its unfished
+revenue rate.)
+
+## 3. Fleet behaviour
+
+Two settings shape how the fleet responds:
+
+* **Profit preference `gamma`** ("how strongly fishers chase profit"):
+  each segment spreads its days over its metiers in proportion to expected
+  profit per day raised to `gamma`. 0 = profit-blind; 1.5 = a metier paying
+  twice the profit gets 74% of the days.
+* **Capacity**: the registered days; the days actually fished are those of
+  the vessels that break even.
+
+The effect of `gamma` on where the days go at the status quo:
+
+```{r}
+cap <- c(trawl = 450, purse_seine = 225, small_scale = 3000)
+days_by_metier <- function(g) {
+  x <- ms_simulate(sys, matrix(cap, 1), 200, capacity = matrix(cap, 1), gamma = g, avg_years = 20)
+  round(colMeans(x$E_metier[, 1, ]))
+}
+d <- sapply(c(0, 1.5, 3), days_by_metier)
+dimnames(d) <- list(sys$metiers$name, paste("gamma", c(0, 1.5, 3)))
+d
+```
+
+With `gamma = 0` every metier of a segment gets the same days; with a strong
+preference, small-scale effort concentrates on the shrimp and pelagic gillnet
+tactics, and trawl on the inner shelf.
+
+## 4. Calibrating the starting point
+
+The calibration fixes what is not directly known (daily costs, the level of
+each stock's catchability) so that the open-access equilibrium reproduces
+what is known: the fleet composition and the status of the stocks. It runs
+once per scenario; the steps take 1-2 minutes each, so they are shown here
+without running, and the results are those stored in `got_system_draft()`.
+
+**Step 1: daily costs.** `ms_tune()` solves each segment's daily cost
+multiplier so that the open-access equilibrium has the target shares of days
+(12 / 6 / 82%) and a target status (here: the weakest stock at the 0.05 Bmsy
+floor):
+
+```{r, eval = FALSE}
+sys1 <- ms_tune(sys_land, status = c(min = 0.05), cap = cap, gamma = 1.5)
+```
+
+**Step 2: stock status.** `ms_condition()` rescales each stock's catchability
+until its B/Bmsy matches the 2024 depletion (limited to 0.05-1.5 Bmsy;
+anchovies and sardines have no value and are left free), keeping the shares
+of days with the total days fixed:
+
+```{r, eval = FALSE}
+target <- setNames(2 * species$dep_2024, species$species)   # B/Bmsy = 2 B/K
+target <- target[!is.na(target)]
+sys2 <- ms_condition(sys1, target, cap = cap, gamma = 1.5)
+attr(sys2, "conditioning")            # targets, achieved B/Bmsy and F/Fmsy, q multipliers
+```
+
+**Step 3: save the tables** (`write_ms_system(sys2, "my_folder", "got")`),
+so the scenario can be reloaded with `read_ms_system()` or uploaded in the
+app.
+
+### Checking the result
+
+The stored draft went through these steps (from the expert matrix). Its
+status quo against the 2024 targets:
+
+```{r}
+sq <- ms_status_quo(sys, capacity = cap, gamma = 1.5, years = 300)
+round(sq$E_seg / sum(sq$E_seg), 3)                       # shares of days
+chk <- data.frame(stock = sys$code, target = pmin(pmax(2 * species$dep_2024, 0.05), 1.5),
+                  BBmsy = round(sq$BBmsy, 2), FFmsy = round(sq$FFmsy, 2))
+chk
+```
+
+All stocks with a 2024 value are within about 0.01 B/Bmsy of it, except
+croakers, which sit at the F cap (0.07 for a target of 0.12). Shrimp is held
+at the 1.5 limit (mse.SEA has 0.97 B/K).
+
+```{r, fig.height = 5}
+plot_kobe(list("Status quo (2024)" = sq), sys)
+```
+
+Every stock lies on the line B/Bmsy + F/Fmsy = 2 (the Schaefer equilibrium).
+Also check that every metier is fished (days by metier at the status quo):
+
+```{r}
+x <- ms_simulate(sys, matrix(cap, 1), 200, capacity = matrix(cap, 1), gamma = 1.5, avg_years = 20)
+round(colMeans(x$E_metier[, 1, ]))
+```
+
+## 5. Next steps
+
+* **Equilibrium analyses**: yield curves (`ms_yield_curve()`,
+  `ms_shared_q_curve()`) and the safeguarded MMSY (`ms_optimise()`); see
+  `vignette("mmsyFM")`.
+* **Harvest strategies**: `hcr_effort()` with a minimum effort, phased
+  changes, closures (all year or by month, e.g. 15 February to 15 May for the
+  trawl grounds), assessed subsets, nominal assignment and complexes, under
+  process, assessment and implementation error; `ms_tune_hcr()` to tune the
+  triggers.
+* **The app**: `run_app()`, preset "Gulf of Thailand (draft)", or upload the
+  tables saved in step 3.

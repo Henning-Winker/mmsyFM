@@ -1,0 +1,21 @@
+species,depth_mean,depth_sd,mud,sand,hard
+Snappers,40,12,0.2,0.6,1
+Catfishes,18,8,1,0.4,0.1
+Croakers,18,8,1,0.4,0.1
+Rays,35,12,1,0.8,0.2
+Sharks,55,12,0.4,1,0.4
+Swimming crab,12,7,1,0.8,0.2
+Lizardfishes,45,12,0.5,1,0.2
+Cuttlefishes,25,10,0.6,1,0.5
+Groupers,25,12,0.1,0.3,1
+Scads (horse mackerels),45,15,1,1,1
+Threadfin breams,40,10,1,0.8,0.2
+Black pomfret,25,12,1,1,1
+Hairtails,55,12,1,1,1
+Shrimps,12,7,1,0.6,0.1
+Bigeyes,62,10,0.4,1,0.4
+Indo-Pacific mackerel,30,15,1,1,1
+Spanish mackerel,35,15,1,1,1
+Squids,35,15,1,1,1
+Anchovies,15,10,1,1,1
+Sardines,25,12,1,1,1

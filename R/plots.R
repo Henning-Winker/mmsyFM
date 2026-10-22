@@ -252,5 +252,7 @@ plot_catchability <- function(sys) {
   ggplot(d, aes(code, metier, fill = value)) +
     geom_tile(colour = "#fcfcfb", linewidth = 0.6) +
     scale_fill_gradient(low = "#f0efec", high = "#104281", limits = c(0, 1), name = "q / max q") +
-    labs(x = NULL, y = NULL) + theme_ms() + theme(panel.grid.major = element_blank(), legend.position = "right")
+    labs(x = NULL, y = NULL) + theme_ms() +
+    theme(panel.grid.major = element_blank(), legend.position = "right",
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 }

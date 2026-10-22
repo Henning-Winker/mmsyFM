@@ -1,0 +1,11 @@
+metier,Snappers,Catfishes,Croakers,Rays,Sharks,Swimming crab,Lizardfishes,Cuttlefishes,Groupers,Scads (horse mackerels),Threadfin breams,Black pomfret,Hairtails,Shrimps,Bigeyes,Indo-Pacific mackerel,Spanish mackerel,Squids,Anchovies,Sardines
+SSF_crab,0,0,0,0.2,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+SSF_shrimp,0,0.2,0.2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0
+SSF_pelagic_gillnet,0,0,0,0,0.2,0,0,0,0,0.2,0,1,0.2,0,0,1,1,0,0,0.2
+SSF_hook_trap,1,0.2,0.2,0.2,0.2,0,0.2,0,1,0,0.2,0,0,0,0.2,0,0,0,0,0
+SSF_cephalopod,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0
+TR_inner,1,1,1,1,1,1,1,1,1,0.2,1,0.2,0.8,1,1,0.2,0.2,1,0.1,0.2
+TR_mid,1,1,1,1,1,1,1,1,1,0.2,1,0.2,0.8,1,1,0.2,0.2,1,0.1,0.2
+TR_outer,1,1,1,1,1,1,1,1,1,0.2,1,0.2,0.8,1,1,0.2,0.2,1,0.1,0.2
+PS_mackerel,0,0,0,0,0,0,0,0.1,0,1,0,1,0.2,0,0,1,1,0.1,0.1,1
+PS_anchovy,0,0,0,0,0,0,0,0,0,0.5,0,0.5,0.5,0,0,0.5,0.5,1,1,0.5

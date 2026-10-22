@@ -65,7 +65,13 @@ their calibrated depletion, so projections start from the present state.
   shelf, hook and line on the reef). Each has a daily cost.
 * **Catchability** `Q` (metiers x stocks) says how strongly a metier catches
   each stock; it encodes gear selectivity and the overlap between where a
-  stock lives and where the metier fishes.
+  stock lives and where the metier fishes. It can be written directly (e.g.
+  an expert overlap matrix) or derived from a habitat landscape with
+  `ms_landscape()`: seabed cells (depth, substrate, area), each stock's depth
+  and substrate preference, each metier's ground (depth range, substrates)
+  and gear selectivity, giving
+  `q = q0 x selectivity x (stock density on the ground / average density)`.
+  The calibration (section 5) then sets the level of each stock's column.
 * **Segments** (e.g. trawl, purse seine, small-scale) have:
   * **home metiers** and **loyalty**: the share of their days spent on home
     metiers; loyalty 1 = zoning (a segment fishes only its own metiers),
@@ -245,13 +251,13 @@ median average annual variation of total days.
 
 | Step | Functions |
 |---|---|
-| Build a system | `ms_system()`, `read_ms_system()`, `write_ms_system()`, presets `atlantic_system()`, `got_system_draft()` |
+| Build a system | `ms_system()`, `read_ms_system()`, `write_ms_system()`, `ms_landscape()`, presets `atlantic_system()`, `got_system_draft()` |
 | Calibrate | `ms_tune()`, `ms_condition()`, `ms_status_quo()` |
 | Simulate | `ms_simulate()`, `ms_summary()` |
 | Equilibrium analyses | `ms_yield_curve()`, `ms_shared_q_curve()`, `ms_optimise()` |
 | Harvest strategies | `hcr_effort()`, `ms_tune_hcr()`, `ms_performance()` |
 | Uncertainty helpers | `proc_sd_from_r()`, `relsig_jabba()`, `ffmsy()` |
-| Plots | `plot_kobe()`, `plot_yield_curves()`, `plot_projection()`, `plot_fleet()`, `plot_catchability()` |
+| Plots | `plot_kobe()`, `plot_yield_curves()`, `plot_projection()`, `plot_fleet()`, `plot_catchability()`, `plot_landscape()` |
 | App | `run_app()` |
 
 ## Appendix A. Model equations
