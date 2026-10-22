@@ -5,8 +5,9 @@
 #'
 #' @param species data frame, one row per stock, with columns `species`,
 #'   `r`, `K` and `price`; optional `code` (short label), `group`,
-#'   `season_amp` (0 = resident, 1 = absent at the low point) and
-#'   `season_peak` (month of highest availability).
+#'   `season_amp` (0 = resident, 1 = absent at the low point),
+#'   `season_peak` (month of highest availability) and `F_cap` (cap on
+#'   realised F in units of Fmsy, see [ms_simulate()]).
 #' @param metiers data frame, one row per métier, with column `metier`;
 #'   optional `tactic`, `ground` and `cost` (cost per day of a vessel with
 #'   efficiency 1). Without `cost`, costs are `cost_share` times each
@@ -25,6 +26,8 @@
 #' @param cost_share used when `metiers` has no `cost` column.
 #' @param effort_season_amp seasonal amplitude of effort (0 = equal months;
 #'   effort peaks in July).
+#' @param F_cap cap on realised F (units of Fmsy) for stocks without an
+#'   `F_cap` column value; `Inf` = no cap, 1.95 = floor at 0.05 Bmsy.
 #' @return An object of class `ms_system`.
 #' @seealso [atlantic_system()] for a ready-made example.
 #' @export
@@ -32,7 +35,7 @@
 #' sys <- atlantic_system()
 #' sys
 ms_system <- function(species, metiers, catchability, segments,
-                      cost_share = 0.4, effort_season_amp = 0) {
+                      cost_share = 0.4, effort_season_amp = 0, F_cap = Inf) {
   species <- as.data.frame(species); metiers <- as.data.frame(metiers)
   segments <- as.data.frame(segments)
   need <- function(df, cols, what) {
@@ -87,12 +90,15 @@ ms_system <- function(species, metiers, catchability, segments,
   rev0 <- as.vector(Q %*% (species$price * species$K * colMeans(avail)))
   cost <- metiers$cost %||% (cost_share * rev0)
 
+  fcap <- species$F_cap %||% rep(F_cap, S); fcap[is.na(fcap)] <- F_cap
+  if (any(fcap <= 0)) stop("`F_cap` must be positive", call. = FALSE)
+
   mt <- data.frame(name = met, tactic = metiers$tactic %||% met, ground = metiers$ground %||% NA,
                    stringsAsFactors = FALSE)
   structure(list(
     species = sp, code = as.character(species$code %||% abbreviate(sp, 3)),
     group = as.character(species$group %||% rep("stock", S)),
-    r = species$r, K = species$K, price = species$price,
+    r = species$r, K = species$K, price = species$price, F_cap = fcap,
     metiers = mt, Q = Q, avail = avail, month_w = month_w,
     segments = shares, home = home, loyalty = setNames(segments$loyalty, seg), eff = eff,
     cost_seg = cost_seg, vessel_cv = mean(vessel_cv),
@@ -109,6 +115,8 @@ print.ms_system <- function(x, ...) {
     cat(sprintf("  segment %-10s loyalty %.2f, efficiency %.2f, daily cost x%.3f, home: %s\n",
                 names(x$segments)[g], x$loyalty[g], max(x$eff[g, ]), x$cost_seg[g],
                 paste(colnames(x$home)[x$home[g, ] > 0], collapse = ", ")))
+  if (any(is.finite(x$F_cap %||% Inf)))
+    cat("  F cap:    ", paste(unique(format(x$F_cap)), collapse = ", "), "x Fmsy\n")
   if (!is.null(attr(x, "status_quo"))) cat("  (tuned; status quo attached)\n")
   invisible(x)
 }
@@ -142,7 +150,7 @@ write_ms_system <- function(sys, dir, prefix) {
   amp <- 1 - apply(sys$avail, 2, min)
   wr(data.frame(species = sys$species, code = sys$code, group = sys$group, r = sys$r, K = sys$K,
                 price = sys$price, season_amp = round(amp, 6),
-                season_peak = apply(sys$avail, 2, which.max)), "species")
+                season_peak = apply(sys$avail, 2, which.max), F_cap = sys$F_cap %||% Inf), "species")
   wr(data.frame(metier = sys$metiers$name, tactic = sys$metiers$tactic, ground = sys$metiers$ground,
                 cost = sys$cost), "metiers")
   wr(data.frame(metier = rownames(sys$Q), sys$Q, check.names = FALSE), "catchability")

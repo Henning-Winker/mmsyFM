@@ -64,6 +64,12 @@
 #'   towards capacity x the share of vessels that break even (lognormal vessel
 #'   efficiency, mean 1), and the active vessels' mean efficiency is the mean of
 #'   that upper tail. phi is then the annual adjustment rate (0-1).
+#' @param F_cap   cap on each stock's realised F, in units of Fmsy (scalar or
+#'   one per stock; default `sys$F_cap`, else `Inf`). Applied monthly as
+#'   F_cap Fmsy / 12. Extra effort on a capped stock catches nothing more, so
+#'   its catch per day falls (economic extinction: the stock is left to rare
+#'   by-catch). In Schaefer equilibrium B/Bmsy = 2 - F/Fmsy, so a cap below 2
+#'   sets a floor: `F_cap = 1.95` keeps every stock at or above 0.05 Bmsy.
 #' @param keep    "final" (equilibrium summaries) or "all" (trajectories)
 #' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, and the system.
 #' @export
@@ -79,7 +85,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                         proc_center = c("mean", "median"),
                         impl_cv = 0, impl_bias = 0, effort_cv = 0, effort_rho = 0,
                         seed = NULL, crn = NULL, keep = c("final", "all"),
-                        avg_years = 10) {
+                        avg_years = 10, F_cap = sys$F_cap %||% Inf) {
   behaviour <- match.arg(behaviour); info <- match.arg(info); keep <- match.arg(keep)
   proc_dep <- match.arg(proc_dep); proc_center <- match.arg(proc_center)
   if (proc_dep == "none" && proc_dep_power != 0) proc_dep <- "power"
@@ -92,6 +98,8 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   B <- B_init %||% K
   E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
   open_fun <- if (is.function(open)) open else function(y) open
+  F_cap <- rep_len(F_cap, sys$S)
+  Fcap_mo <- matrix(F_cap * sys$r / 2 / 12, n, sys$S, byrow = TRUE)
   Bbuf <- replicate(hcr_lag + 1, B, simplify = FALSE)      # start-of-year biomass, most recent first
   capacity <- if (is.null(capacity)) caps else matrix(capacity, n, G, byrow = is.null(dim(capacity)))
   emult <- matrix(1, n, G)
@@ -166,11 +174,12 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                                gamma, opm > 0, cost = cost_m, emult = emult * qdev, cseg = cseg)
       }
       E_eff <- attr(E_m, "effective") * opm         # effective effort on the open share
-      Fm <- (E_eff %*% Q) * av                     # n x S fishing mortality this month
+      Fm <- (E_eff %*% Q) * av                     # n x S nominal fishing mortality this month
+      Fs <- pmax(Fm, 1e-12)
+      if (any(is.finite(F_cap))) Fm <- pmin(Fm, Fcap_mo)   # saturation: realised F at most F_cap Fmsy
       Cm <- Bm * (1 - exp(-Fm))
       # catch by metier (proportional split of each species' catch by F share)
       share_m <- array(0, c(n, M))
-      Fs <- pmax(Fm, 1e-12)
       for (m in seq_len(M)) {
         Fim <- outer(E_eff[, m], Q[m, ]) * av
         rev_m[, m] <- rev_m[, m] + rowSums((Cm * Fim / Fs) %*% diag(price, S))

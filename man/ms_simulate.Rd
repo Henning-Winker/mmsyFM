@@ -37,7 +37,8 @@ ms_simulate(
   seed = NULL,
   crn = NULL,
   keep = c("final", "all"),
-  avg_years = 10
+  avg_years = 10,
+  F_cap = sys$F_cap \%||\% Inf
 )
 }
 \arguments{
@@ -126,6 +127,13 @@ repeated for each of several control settings}
 \item{keep}{"final" (equilibrium summaries) or "all" (trajectories)}
 
 \item{avg_years}{years kept when \code{keep = "final"}.}
+
+\item{F_cap}{cap on each stock's realised F, in units of Fmsy (scalar or
+one per stock; default \code{sys$F_cap}, else \code{Inf}). Applied monthly as
+F_cap Fmsy / 12. Extra effort on a capped stock catches nothing more, so
+its catch per day falls (economic extinction: the stock is left to rare
+by-catch). In Schaefer equilibrium B/Bmsy = 2 - F/Fmsy, so a cap below 2
+sets a floor: \code{F_cap = 1.95} keeps every stock at or above 0.05 Bmsy.}
 }
 \value{
 An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, and the system.
