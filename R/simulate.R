@@ -104,7 +104,10 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   cost_m <- matrix(sys$cost, n, M, byrow = TRUE)
   B <- if (is.null(B_init)) K * matrix(sys$dep_init %||% 1, n, S, byrow = TRUE)
        else matrix(B_init, n, S, byrow = is.null(dim(B_init)))
-  E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
+  # with a rule, the starting days are not clipped to the caps: the rule phases the move
+  # from the current days to its reference (e.g. status quo -> MMSY effort)
+  E_seg <- if (is.null(E_init)) caps else if (!is.null(hcr)) matrix(E_init, n, G, byrow = is.null(dim(E_init)))
+           else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
   init <- list(B = B, E_seg = E_seg)                 # year-0 state (for plots of projections)
   open_fun <- if (is.function(open)) open else function(y) open
   F_cap <- rep_len(F_cap, sys$S)
@@ -152,7 +155,8 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       # a rule returns multipliers on the caps (n x G), or list(mult, open) where
       # open (n x M, 0-1) is the share of each metier's ground/season left open
       Bbuf <- c(list(B), Bbuf)[seq_len(hcr_lag + 1)]
-      ctl <- hcr(list(B = Bbuf[[hcr_lag + 1]], K = K, year = y, sys = sys, idx = idx, nd = nd, lag = hcr_lag))
+      ctl <- hcr(list(B = Bbuf[[hcr_lag + 1]], K = K, year = y, sys = sys, idx = idx, nd = nd, lag = hcr_lag,
+                      E = E_seg, caps = caps))
       if (is.list(ctl)) {
         if (!is.null(ctl$mult)) E_cap_y <- caps * ctl$mult
         if (!is.null(ctl$open)) opm <- opm * ctl$open
@@ -221,7 +225,10 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       Bk[keep_idx, , ] <- B; Ck[keep_idx, , ] <- C_y; Fk[keep_idx, , ] <- F_y; Ek[keep_idx, , ] <- Em_y; Egk[keep_idx, , , ] <- Eg_y
       Rk[keep_idx, ] <- revenue; Pk[keep_idx, ] <- revenue - costs; Esk[keep_idx, , ] <- E_seg
     }
-    B <- pmax((B + r * B * (1 - B / K) - C_y) * pe, 1e-6 * K)     # JABBA-type process error
+    # JABBA-type process error, with JABBA's floor on the surplus-production update (0.005 K):
+    # for fast stocks (r > 1) a shock above K makes the logistic update negative (overshoot);
+    # the floor keeps the stock from being absorbed at zero
+    B <- pmax(B + r * B * (1 - B / K) - C_y, 0.005 * K) * pe
     # entry / exit below the cap
     if (phi > 0) {
       for (g in seq_len(G)) {

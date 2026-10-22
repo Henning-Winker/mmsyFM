@@ -177,27 +177,43 @@ behavioural fleet.
    B/Bmsy = true value x lognormal error (CV `assess_cv`, optional AR(1)),
    from data `hcr_lag` years old (default 2: data of year t-2, assessed in
    t-1, advice for t).
-2. **Responsibility.** A segment answers for a stock if one of the metiers
-   it can use (its home metiers when loyalty > 0) catches it substantially:
-   catchability at least `own_q` (default 0.2) of the stock's highest
-   catchability in any metier.
-3. **Weakest link.** A segment's days are a fraction of its status-quo days,
-   set by the most depleted stock it answers for: 1 at or above the trigger
-   `Btrig`, falling linearly to the **minimum effort** `Emin` (default 0.1)
-   at `Blim` (0.25 Bmsy) and below. The rule reduces effort but never closes
-   a segment; since F scales with days, the floor puts about 0.1 x the
-   status-quo F on each stock (`Emin = 0` allows a full closure).
-4. **Smoothing and implementation.** The days may change by at most
+2. **Responsibility.** A segment answers for the stocks it catches as a
+   **main fishery**: one of the metiers it can use (its home metiers when
+   loyalty > 0) has at least `own_q` (default 0.5) of the stock's highest
+   catchability in any metier. With `own_q = 0.2` by-catch counts too.
+3. **Status of the segment.** By default (`aggregate = "weighted"`) it is the
+   mean assessed B/Bmsy of those stocks, weighted by each stock's potential
+   revenue for the segment (its catchability on the segment's metiers x
+   price x K): the stocks that make up a fishery drive its effort. The
+   **weakest link** (`aggregate = "min"`, the most depleted stock decides) is
+   the special, most precautionary case.
+4. **Ramp.** A segment's days are a fraction of its **full effort**, normally
+   the safeguarded-MMSY days from `ms_optimise()` (or the status-quo days):
+   1 at or above the trigger `Btrig` (default 0.5 Bmsy, i.e. at Bpa, as in
+   ICES and GFCM advice; it can differ by segment, e.g. higher for small
+   pelagics), falling linearly to the **minimum effort** `Emin` (default
+   0.1) at `Blim` (0.25 Bmsy) and below. The rule reduces effort but never
+   closes a segment (`Emin = 0` allows a full closure).
+5. **Smoothing and implementation.** The days may change by at most
    `max_change` a year relative to the previous year (0.2 = 20% up or down,
-   as for TAC changes), starting from the status quo, so cuts and recoveries
-   are phased; realised days differ from allowed days by implementation
-   error (CV `impl_cv`).
+   as for TAC changes), starting from the current (status-quo) days, so the
+   move to the full effort and later cuts and recoveries are phased;
+   realised days differ from allowed days by implementation error (CV
+   `impl_cv`).
+
+The weak species are protected in three ways: the full effort itself keeps
+every stock at or above Bpa at equilibrium (the safeguard of the MMSY
+optimisation); the ramp cuts a segment when the stocks it fishes decline;
+and a choke stock can be protected by a closure of the metiers that drive it
+(below) instead of cutting whole fleets.
 
 **Mixed fleets.** A mixed or generalist segment fishes many metiers, so it
-answers for many stocks, including the choke stock, and is cut whenever that
-stock is low, together with the specialist that targets it. This is the
-central problem of mixed fisheries: one weak stock constrains every fleet
-that touches it.
+answers for many stocks. Under the weakest link it is cut whenever any of
+them is low, together with the specialist that targets it: one weak stock
+constrains every fleet that touches it, and with many depleted, slow stocks
+and noisy assessments the fleets stay at the minimum effort for decades.
+The value-weighted status avoids this while the full effort and closures
+keep the safeguard.
 
 **Alternatives to cutting days** (arguments of `hcr_effort()`):
 
@@ -276,7 +292,12 @@ catchability of metier $j$ and $\tilde E_{j,m}$ the effective days (days x
 efficiency x open share). Growth is added once a year on the start-of-year
 biomass, with process error $\eta$:
 
-$$B_{s,t+1} = \left( B_{s,t} + r_s B_{s,t} \left(1 - \frac{B_{s,t}}{K_s}\right) - C_{s,t} \right) e^{\eta_{s,t}}, \qquad C_{s,t} = \sum_m C_{s,m}$$
+$$B_{s,t+1} = \max\left( B_{s,t} + r_s B_{s,t} \left(1 - \frac{B_{s,t}}{K_s}\right) - C_{s,t}, \quad 0.005 K_s \right) e^{\eta_{s,t}}, \qquad C_{s,t} = \sum_m C_{s,m}$$
+
+The floor at 0.005 K (as in JABBA) matters for fast stocks: with r > 1, a
+large positive shock can take a stock above K, and the logistic update from
+there can turn negative (overshoot); without the floor the stock would be
+absorbed at zero.
 
 ### A2. Reference points and F/Fmsy
 
@@ -362,14 +383,19 @@ unfished revenue rate, $c_j = 0.4 \sum_s p_s q_{js} K_s \bar a_s$.
 The assessed status is $\hat b_{u,t} = b_{u,t-L} e^{\epsilon_{u,t}}$ with
 $b = B/B_{MSY}$ of unit $u$ (stock or complex), lag $L$ and lognormal error
 $\epsilon$ (CV `assess_cv`, optional AR(1)). Segment $g$ answers for the
-units $U_g$ it catches substantially
+units $U_g$ it catches as a main fishery
 ($\max_{j \in H_g} q_{js} \ge \theta \max_j q_{js}$, $\theta$ = `own_q`). Its
-fraction of the reference (status-quo) days is
+status is the value-weighted mean (or, for the weakest link, the minimum)
 
-$$f_{g,t} = E_{min} + (1 - E_{min}) \min\left(1, \max\left(0, \frac{\min_{u \in U_g} \hat b_{u,t} - B_{lim}}{B_{trig} - B_{lim}}\right)\right)$$
+$$\hat b_{g,t} = \sum_{u \in U_g} w_{gu} \hat b_{u,t}, \qquad w_{gu} \propto \sum_{s \in u} p_s K_s \sum_{j \in H_g} q_{js} \qquad \left(\text{or } \hat b_{g,t} = \min_{u \in U_g} \hat b_{u,t}\right)$$
+
+and its fraction of the reference (full) days $E^{ref}_g$, the safeguarded-MMSY
+days or the status-quo days, is
+
+$$f_{g,t} = E_{min} + (1 - E_{min}) \min\left(1, \max\left(0, \frac{\hat b_{g,t} - B_{lim}}{B_{trig,g} - B_{lim}}\right)\right)$$
 
 limited to $(1 - \Delta) f_{g,t-1} \le f_{g,t} \le (1 + \Delta) \max(f_{g,t-1}, 0.05)$
-(with $f_{g,0} = 1$). The cap is
+(with $f_{g,0} = E_{g,0} / E^{ref}_g$, the current days relative to the reference). The cap is
 $\bar E_{g,t} = f_{g,t} E^{ref}_g e^{\xi_{g,t}}$ with implementation error
 $\xi$. A closure for unit $u$ sets the open share of the metiers that drive it
 ($q_{js} \ge$ `close_q` $\max_j q_{js}$) to the same ramp, from 0 at

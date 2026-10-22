@@ -18,7 +18,7 @@ test_that("F_cap keeps stocks at or above the Schaefer floor", {
   nocap <- ms_simulate(sys, heavy, years = 300, cost_seg = rep(0, 3), F_cap = Inf)
   b <- function(x) attr(ms_summary(x), "BBmsy")[1, ]
   expect_true(all(b(cap) > 0.045))
-  expect_true(min(b(nocap)) < 0.01)
+  expect_lte(min(b(nocap)), 0.0101)                 # without the cap: at the 0.005 K floor
 })
 
 test_that("smooth cap: close to the hard cap, used by default with process error", {

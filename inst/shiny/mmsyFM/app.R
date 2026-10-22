@@ -36,9 +36,12 @@ tips <- list(
   opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
-  hs_btrig = "When an assessed stock falls below this B/Bmsy, the days of the segments that catch it are cut: full days at the trigger, a linear ramp down to zero at Blim (0.25 Bmsy). The most depleted stock a segment catches sets its cut.",
+  hs_btrig = "Below this B/Bmsy a segment's days are cut: full days at the trigger, a linear ramp down to the minimum effort at Blim (0.25 Bmsy). Default 0.5 Bmsy (the trigger at Bpa, as in ICES and GFCM advice).",
   hs_btrig_close = "For the closure stock: the metiers that drive it are closed for a share of the time that ramps from 0 at this trigger to fully closed at Blim. It replaces the effort rule for that stock.",
-  hs_emin = "The rule never sets a segment below this share of its status-quo days (at and below Blim): a minimum effort instead of a closure. F scales with days, so 0.1 puts about 0.1 x the status-quo F on each stock. 0 allows a full closure.",
+  hs_emin = "The rule never sets a segment below this share of its full effort (at and below Blim): a minimum effort instead of a closure. F scales with days, so 0.1 puts about 0.1 x the F of the full effort on each stock. 0 allows a full closure.",
+  hs_rules = "Each ticked rule is a run with the same random draws (process, assessment and implementation error), shown in its own colour.<br><b>No control</b>: the fleet at capacity, limited only by profitability.<br><b>Fixed MMSY effort</b>: each segment capped at its safeguarded-MMSY days, no feedback.<br><b>HCR</b>: each segment's days ramp from the minimum effort at Blim to its full effort at the trigger. <b>Value-weighted</b>: the status is the mean B/Bmsy of the stocks the segment fishes, weighted by their value to it. <b>Weakest link</b>: the most depleted stock decides (most precautionary). <b>Full effort</b> = the MMSY days, or today's days. <b>+ closure</b>: the stock chosen below is protected by closing the metiers that drive it.",
+  hs_trig_seg = "Set a different trigger for each segment, e.g. a higher trigger for the purse seine fishing short-lived small pelagics.",
+  hs_bycatch = "Off (default): a segment answers only for stocks it catches as a main fishery (catchability at least half the stock's highest). On: by-catch counts too, so more stocks can cut a segment's days.",
   hs_maxchange = "Largest change in a segment's days from one year to the next, relative to last year (0.2 = at most 20% up or down), as for TAC changes: a cut from the status quo to the 10% floor takes about 10 years. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
@@ -164,11 +167,20 @@ ui <- navbarPage(
   tabPanel("5. Harvest strategy",
     sidebarLayout(
       sidebarPanel(width = 3,
+        checkboxGroupInput("hs_rules", info("hs_rules", "Rules to compare"),
+          c("No control (status-quo days)" = "none", "Fixed MMSY effort" = "mmsy",
+            "HCR, value-weighted (full = MMSY)" = "hcr_w", "HCR, weakest link (full = MMSY)" = "hcr_min",
+            "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure (full = MMSY)" = "hcr_close"),
+          c("none", "mmsy", "hcr_w", "hcr_min")),
+        p(class = "note", "Full effort = the safeguarded-MMSY days from tab 4 (computed here if tab 4 has not been run: 1-3 min)."),
         h5("Rule"),
-        sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.6, 0.05),
+        sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.5, 0.05),
+        checkboxInput("hs_trig_seg", info("hs_trig_seg", "Triggers by segment"), FALSE),
+        conditionalPanel("input.hs_trig_seg", uiOutput("hs_trig_inputs")),
+        checkboxInput("hs_bycatch", info("hs_bycatch", "By-catch counts for responsibility"), FALSE),
         uiOutput("hs_close"),
         sliderInput("hs_btrig_close", info("hs_btrig_close", "Closure trigger (B/Bmsy)"), 0.5, 5, 3, 0.25),
-        sliderInput("hs_emin", info("hs_emin", "Minimum effort (share of status-quo days)"), 0, 0.5, 0.1, 0.05),
+        sliderInput("hs_emin", info("hs_emin", "Minimum effort (share of full effort)"), 0, 0.5, 0.1, 0.05),
         sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change in days (1 = no limit)"), 0.05, 1, 0.2, 0.05),
         h5("Uncertainty"),
         sliderInput("hs_lag", info("hs_lag", "Data lag (years)"), 0, 3, 2, 1),
@@ -353,21 +365,63 @@ server <- function(input, output, session) {
 
   # 5. harvest strategy
   output$hs_close <- renderUI(selectInput("hs_close_s", info("hs_close_s", "Closure for stock"), c("none", req(rv$sys)$species)))
-  rule_args <- reactive(list(Btrig = input$hs_btrig, Btrig_close = input$hs_btrig_close,
+  output$hs_trig_inputs <- renderUI({
+    sys <- rv$sys; req(sys)
+    lapply(names(sys$segments), function(g)
+      numericInput(paste0("trig_", g), paste("Trigger:", g), input$hs_btrig %||% 0.5, 0.1, 2, 0.05))
+  })
+  btrig <- reactive({
+    if (!isTRUE(input$hs_trig_seg)) return(input$hs_btrig)
+    g <- names(rv$sys$segments)
+    setNames(vapply(g, function(x) input[[paste0("trig_", x)]] %||% input$hs_btrig, 0), g)
+  })
+  rule_args <- reactive(list(Btrig = btrig(), Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
-                             assess_cv = input$hs_assess,
+                             assess_cv = input$hs_assess, own_q = if (isTRUE(input$hs_bycatch)) 0.2 else 0.5,
                              max_change = if (input$hs_maxchange >= 1) Inf else input$hs_maxchange, Emin = input$hs_emin))
   sim_args <- reactive(c(list(gamma = input$gamma, capacity = cap(), impl_cv = input$hs_impl,
                               effort_cv = input$hs_effort, effort_rho = 0.5, hcr_lag = input$hs_lag),
                          proc_args(input, rv$sys)))
+  # safeguarded-MMSY effort: from tab 4 when it has been run for this system, else computed once
+  mmsy_cache <- reactiveVal(NULL)
+  observeEvent(opt(), { o <- opt(); if (isTRUE(o$feasible))
+    mmsy_cache(list(key = list(rv$sys$Q, rv$sys$cost_seg, input$gamma, cap()), caps = o$caps)) })
+  mmsy_caps <- function() {
+    key <- list(rv$sys$Q, rv$sys$cost_seg, input$gamma, cap()); m <- mmsy_cache()
+    if (!is.null(m) && identical(m$key, key)) return(m$caps)
+    o <- withProgress(message = "Computing the safeguarded MMSY effort (once)", value = 0.2,
+      ms_optimise(rv$sys, "yield", levers = names(rv$sys$segments), upper = cap(), Bpa = 0.5,
+                  gamma = input$gamma, years = 150, capacity = cap()))
+    validate(need(isTRUE(o$feasible), "No safeguarded MMSY solution: every stock cannot be kept above Bpa."))
+    mmsy_cache(list(key = key, caps = o$caps)); o$caps
+  }
   hs <- eventReactive(input$run_hs, {
-    sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim
+    sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
+    validate(need(length(sel) > 0, "Tick at least one rule."))
     B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
+    Em <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close") %in% sel)) matrix(mmsy_caps(), n, sys$G, byrow = TRUE)
     run <- function(caps, hcr = NULL) do.call(ms_simulate, c(list(sys, caps, input$hs_years, B_init = B0,
       E_init = E0, hcr = hcr, seed = 1, keep = "all"), sim_args()))
-    withProgress(message = "Simulating", value = 0.3, list(
-      "No control" = run(matrix(cap(), n, sys$G, byrow = TRUE)),
-      "Rule" = run(E0, do.call(hcr_effort, c(list(sys), rule_args())))))
+    ra <- rule_args(); ra$close <- NULL
+    rule <- function(...) do.call(hcr_effort, c(list(sys), utils::modifyList(ra, list(...))))
+    labs <- c(none = "No control", mmsy = "Fixed MMSY effort", hcr_w = "HCR value-weighted",
+              hcr_min = "HCR weakest link", hcr_sq = "HCR value-weighted, full = status quo",
+              hcr_close = "HCR + closure")
+    out <- list()
+    withProgress(message = "Simulating", value = 0, {
+      for (k in sel) {
+        incProgress(1 / length(sel), detail = labs[[k]])
+        out[[labs[[k]]]] <- switch(k,
+          none = run(matrix(cap(), n, sys$G, byrow = TRUE)),
+          mmsy = run(Em),
+          hcr_w = run(Em, rule(aggregate = "weighted")),
+          hcr_min = run(Em, rule(aggregate = "min")),
+          hcr_sq = run(E0, rule(aggregate = "weighted")),
+          hcr_close = { validate(need(input$hs_close_s != "none", "Choose a closure stock for 'HCR + closure'."))
+                        run(Em, rule(aggregate = "weighted", close = input$hs_close_s)) })
+      }
+    })
+    out
   })
   output$hs_perf <- renderTable({
     r <- hs(); ny <- input$hs_years
@@ -387,9 +441,9 @@ server <- function(input, output, session) {
     withProgress(message = "Tuning triggers", value = 0.2,
       do.call(ms_tune_hcr, c(list(sys, triggers = seq(input$tu_eff[1], input$tu_eff[2], by = 0.1),
         close = ra$close, close_triggers = if (is.null(ra$close)) NULL else ct,
-        risk = c(worst_P_below_Bpa = input$tu_risk), E_ref = sq$E_seg, B_init = sq$B,
+        risk = c(worst_P_below_Bpa = input$tu_risk), E_ref = mmsy_caps(), E_init = sq$E_seg, B_init = sq$B,
         nsim = input$tu_nsim, years = input$hs_years, eval_years = max(1, input$hs_years - 19):input$hs_years,
-        assess_cv = input$hs_assess, max_change = ra$max_change, Emin = ra$Emin), sim_args())))
+        assess_cv = input$hs_assess, max_change = ra$max_change, Emin = ra$Emin, own_q = ra$own_q), sim_args())))
   })
   output$tu_best <- renderTable({ b <- tu()$best; validate(need(!is.null(b), "No grid point meets the risk limit.")); b }, striped = TRUE)
   output$tu_table <- renderTable(tu()$table, striped = TRUE)

@@ -6,11 +6,11 @@
 \usage{
 hcr_effort(
   sys,
-  Btrig = 0.8,
+  Btrig = 0.5,
   Blim = 0.25,
   assess_cv = 0.2,
   assess_rho = 0,
-  own_q = 0.2,
+  own_q = 0.5,
   close = NULL,
   close_q = 0.5,
   max_change = Inf,
@@ -19,17 +19,26 @@ hcr_effort(
   assessed = NULL,
   assign = NULL,
   complexes = NULL,
-  complex_index = c("biomass", "cpue")
+  complex_index = c("biomass", "cpue"),
+  aggregate = c("weighted", "min"),
+  seed = 1
 )
 }
 \arguments{
 \item{sys}{an \code{ms_system}.}
 
-\item{Btrig, Blim}{trigger and limit relative to Bmsy (effort rule).}
+\item{Btrig, Blim}{trigger and limit relative to Bmsy (effort rule). The
+default trigger is 0.5 Bmsy, i.e. at Bpa, as is common in ICES and GFCM
+advice. \code{Btrig} may be named by segment to set triggers by segment (e.g.
+\code{c(trawl = 0.5, purse_seine = 0.8, small_scale = 0.5)}; unnamed segments
+get 0.5), or be a vector with one value per simulation row (a grid of
+triggers, as in \code{\link[=ms_tune_hcr]{ms_tune_hcr()}}).}
 
 \item{assess_cv, assess_rho}{assessment error CV and its AR(1).}
 
-\item{own_q}{a segment answers for a stock it can catch with >= \code{own_q} of the stock's highest catchability.}
+\item{own_q}{a segment answers for a stock it catches as a main fishery: one of
+its metiers has >= \code{own_q} (default 0.5) of the stock's highest
+catchability. Lower values (e.g. 0.2) also count by-catch.}
 
 \item{close}{stocks or complexes protected by a closure.}
 
@@ -49,6 +58,17 @@ rule close a segment completely.}
 \item{Btrig_close}{trigger of the closure.}
 
 \item{assessed, assign, complexes, complex_index}{see Details.}
+
+\item{aggregate}{how a segment's status is formed from the assessed B/Bmsy
+of the units it answers for: \code{"weighted"} (default), the mean weighted by
+each unit's potential revenue for the segment (catchability on its
+metiers x price x K), so the stocks that make up its fishery drive its
+effort; or \code{"min"}, the weakest link (the most depleted unit sets the
+segment's effort), a special, most precautionary case.}
+
+\item{seed}{seed of the rule's own random stream (assessment errors), kept
+apart from the simulation's, so rules compared with the same simulation
+seed see the same process and implementation errors.}
 }
 \value{
 A rule function for the \code{hcr} argument of \code{\link[=ms_simulate]{ms_simulate()}}, with attributes \code{own}, \code{drive} and \code{units}.
@@ -59,11 +79,16 @@ Segment effort rule with an optional choke-stock closure
 \details{
 Each year the assessed B/Bmsy of every stock is the true value times a
 lognormal assessment error (CV \code{assess_cv}, AR(1) \code{assess_rho}). Each
-segment's days are a fraction of its reference days (the caps passed to
-ms_simulate(), e.g. the status-quo days): the fraction ramps from \code{Emin}
-at Blim (and below) to 1 at Btrig (both relative to Bmsy) of the most depleted stock the
-segment can catch substantially (any usable metier has >= \code{own_q} of the
-stock's highest catchability).
+segment's days are a fraction of its reference days, the caps passed to
+ms_simulate(): normally the safeguarded-MMSY effort from \code{\link[=ms_optimise]{ms_optimise()}}
+(the "full" effort above the trigger), or the status-quo days. The
+fraction ramps from \code{Emin} at Blim (and below) to 1 at Btrig (both
+relative to Bmsy) of the segment's status: the value-weighted mean
+(\code{aggregate = "weighted"}) or the minimum (\code{"min"}, weakest link) of the
+assessed B/Bmsy of the units it catches as a main fishery (\code{own_q}). With
+\code{max_change}, the first year starts from the current days relative to the
+reference days, so the move from the status quo to the reference effort
+is phased.
 
 Stocks in \code{close} are protected by a closure instead: the open share of
 the metiers that drive them (catchability >= \code{close_q} of the stock's

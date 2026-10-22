@@ -30,3 +30,21 @@ test_that("the app loads the Gulf of Thailand preset with capacity by segment", 
     expect_equal(cap()[["small_scale"]], 2000)
   })
 })
+
+test_that("the app compares several rules, with full effort from the safeguarded MMSY", {
+  skip_if_not_installed("shiny")
+  skip_on_cran()
+  app <- new.env()
+  src <- readLines(system.file("shiny", "mmsyFM", "app.R", package = "mmsyFM"))
+  eval(parse(text = src[!grepl("^shinyApp\\(", src)]), envir = app)
+  shiny::testServer(app$server, {
+    session$setInputs(preset = "atlantic", gamma = 1.5, season_amp = 0, hs_close_s = "none",
+                      hs_rules = c("none", "mmsy", "hcr_w", "hcr_min"), hs_btrig = 0.5, hs_trig_seg = FALSE,
+                      hs_bycatch = FALSE, hs_btrig_close = 3, hs_emin = 0.1, hs_maxchange = 0.2, hs_lag = 2,
+                      hs_assess = 0.2, hs_impl = 0.1, hs_effort = 0.1, proc_scale = 1, proc_dep = TRUE,
+                      proc_center = "median", proc_rho = 0.3, hs_nsim = 4, hs_years = 10, run_hs = 1)
+    r <- hs()
+    expect_equal(names(r), c("No control", "Fixed MMSY effort", "HCR value-weighted", "HCR weakest link"))
+    expect_true(all(vapply(r, function(x) dim(x$B)[1], 0) == 10))
+  })
+})

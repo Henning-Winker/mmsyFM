@@ -3,10 +3,26 @@
 #' Segment effort rule with an optional choke-stock closure
 #'
 #' @param sys an `ms_system`.
-#' @param Btrig,Blim trigger and limit relative to Bmsy (effort rule).
+#' @param Btrig,Blim trigger and limit relative to Bmsy (effort rule). The
+#'   default trigger is 0.5 Bmsy, i.e. at Bpa, as is common in ICES and GFCM
+#'   advice. `Btrig` may be named by segment to set triggers by segment (e.g.
+#'   `c(trawl = 0.5, purse_seine = 0.8, small_scale = 0.5)`; unnamed segments
+#'   get 0.5), or be a vector with one value per simulation row (a grid of
+#'   triggers, as in [ms_tune_hcr()]).
 #' @param Btrig_close trigger of the closure.
 #' @param assess_cv,assess_rho assessment error CV and its AR(1).
-#' @param own_q a segment answers for a stock it can catch with >= `own_q` of the stock's highest catchability.
+#' @param own_q a segment answers for a stock it catches as a main fishery: one of
+#'   its metiers has >= `own_q` (default 0.5) of the stock's highest
+#'   catchability. Lower values (e.g. 0.2) also count by-catch.
+#' @param seed seed of the rule's own random stream (assessment errors), kept
+#'   apart from the simulation's, so rules compared with the same simulation
+#'   seed see the same process and implementation errors.
+#' @param aggregate how a segment's status is formed from the assessed B/Bmsy
+#'   of the units it answers for: `"weighted"` (default), the mean weighted by
+#'   each unit's potential revenue for the segment (catchability on its
+#'   metiers x price x K), so the stocks that make up its fishery drive its
+#'   effort; or `"min"`, the weakest link (the most depleted unit sets the
+#'   segment's effort), a special, most precautionary case.
 #' @param close stocks or complexes protected by a closure.
 #' @param close_q métiers with >= `close_q` of the stock's highest catchability are closed.
 #' @param Emin minimum effort: the lowest fraction of its reference days a
@@ -23,11 +39,16 @@
 #'
 #' Each year the assessed B/Bmsy of every stock is the true value times a
 #' lognormal assessment error (CV `assess_cv`, AR(1) `assess_rho`). Each
-#' segment's days are a fraction of its reference days (the caps passed to
-#' ms_simulate(), e.g. the status-quo days): the fraction ramps from `Emin`
-#' at Blim (and below) to 1 at Btrig (both relative to Bmsy) of the most depleted stock the
-#' segment can catch substantially (any usable metier has >= `own_q` of the
-#' stock's highest catchability).
+#' segment's days are a fraction of its reference days, the caps passed to
+#' ms_simulate(): normally the safeguarded-MMSY effort from [ms_optimise()]
+#' (the "full" effort above the trigger), or the status-quo days. The
+#' fraction ramps from `Emin` at Blim (and below) to 1 at Btrig (both
+#' relative to Bmsy) of the segment's status: the value-weighted mean
+#' (`aggregate = "weighted"`) or the minimum (`"min"`, weakest link) of the
+#' assessed B/Bmsy of the units it catches as a main fishery (`own_q`). With
+#' `max_change`, the first year starts from the current days relative to the
+#' reference days, so the move from the status quo to the reference effort
+#' is phased.
 #'
 #' Stocks in `close` are protected by a closure instead: the open share of
 #' the metiers that drive them (catchability >= `close_q` of the stock's
@@ -57,11 +78,12 @@
 #' the assessment error between years).
 #' @return A rule function for the `hcr` argument of [ms_simulate()], with attributes `own`, `drive` and `units`.
 #' @export
-hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rho = 0,
-                       own_q = 0.2, close = NULL, close_q = 0.5, max_change = Inf, Emin = 0.1,
+hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rho = 0,
+                       own_q = 0.5, close = NULL, close_q = 0.5, max_change = Inf, Emin = 0.1,
                        Btrig_close = Btrig, assessed = NULL, assign = NULL,
-                       complexes = NULL, complex_index = c("biomass", "cpue")) {
-  complex_index <- match.arg(complex_index)
+                       complexes = NULL, complex_index = c("biomass", "cpue"),
+                       aggregate = c("weighted", "min"), seed = 1) {
+  complex_index <- match.arg(complex_index); aggregate <- match.arg(aggregate)
   S <- sys$S; G <- sys$G; M <- sys$M; seg <- names(sys$segments)
   qmax <- apply(sys$Q, 2, max)
   # assessment units: complexes (pooled taxa) and the remaining single stocks
@@ -70,9 +92,14 @@ hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rh
   U <- length(units); un <- names(units)
   w <- if (complex_index == "cpue") qmax else rep(1, S)       # cpue: pooled catch rates weight taxa by catchability
   W <- sapply(units, function(m) w * (sys$species %in% m))     # S x U membership weights
-  own_sp <- sapply(seq_len(G), function(g) {
-    acc <- if (sys$loyalty[g] > 0) sys$home[g, ] > 0 else rep(TRUE, M)
-    apply(sys$Q[acc, , drop = FALSE], 2, max) >= own_q * qmax })   # S x G
+  acc_g <- lapply(seq_len(G), function(g) if (sys$loyalty[g] > 0) sys$home[g, ] > 0 else rep(TRUE, M))
+  own_sp <- sapply(seq_len(G), function(g)
+    apply(sys$Q[acc_g[[g]], , drop = FALSE], 2, max) >= own_q * qmax)   # S x G
+  # value weights: each stock's potential revenue for the segment (catchability on its
+  # metiers x price x K), pooled by unit
+  val_sp <- sapply(seq_len(G), function(g)
+    colSums(sys$Q[acc_g[[g]], , drop = FALSE]) * sys$price * sys$K)   # S x G
+  val_u <- t(W > 0) %*% val_sp                                     # U x G
   own <- (t(W > 0) %*% own_sp) > 0                                 # U x G: a segment answers for a unit
   if (!is.null(assign)) {                                          # if it catches any member
     own[] <- FALSE
@@ -95,16 +122,34 @@ hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rh
     n <- nrow(st$B)
     if (st$year == 1) { prev <<- NULL; eps <<- NULL }
     nd <- st$nd %||% n; idx <- st$idx %||% seq_len(n)
+    # assessment errors from the rule's own random stream (seed + year), so the process
+    # errors of the simulation are the same whatever the rule (common random numbers)
+    has_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    old <- if (has_seed) get(".Random.seed", envir = globalenv())
+    set.seed(seed * 1000 + st$year)
     z <- matrix(stats::rnorm(nd * U), nd, U)[idx, , drop = FALSE]
-    bt <- rep_len(Btrig, n); btc <- rep_len(Btrig_close, n)
+    if (has_seed) assign(".Random.seed", old, envir = globalenv()) else rm(".Random.seed", envir = globalenv())
+    # trigger: by segment (named by segment) or by simulation row (a grid, see ms_tune_hcr())
+    btm <- if (!is.null(names(Btrig)) && all(names(Btrig) %in% seg))
+      matrix(c(Btrig, setNames(rep(0.5, G), seg))[seg], n, G, byrow = TRUE)
+      else matrix(rep_len(Btrig, n), n, G)
+    btc <- rep_len(Btrig_close, n)
     eps <<- if (is.null(eps) || assess_rho == 0) z else assess_rho * eps + sqrt(1 - assess_rho^2) * z
     true_u <- (st$B %*% W) / matrix(Bmsy_w, n, U, byrow = TRUE)   # pooled B/Bmsy by unit
     bb <- true_u * exp(sig * eps - sig^2 / 2)                       # assessed
+    status_g <- function(g) {                                       # the status that drives segment g
+      b <- bb[, own[, g], drop = FALSE]
+      if (aggregate == "min") return(apply(b, 1, min))             # weakest link
+      w <- val_u[own[, g], g]; w <- if (sum(w) > 0) w / sum(w) else rep(1 / length(w), length(w))
+      as.vector(b %*% w)                                           # value-weighted mean
+    }
     mult <- matrix(sapply(seq_len(G), function(g)
-      if (any(own[, g])) Emin + (1 - Emin) * ramp(apply(bb[, own[, g], drop = FALSE], 1, min), bt)
-      else rep(1, n)), n, G)
+      if (any(own[, g])) Emin + (1 - Emin) * ramp(status_g(g), btm[, g]) else rep(1, n)), n, G)
     if (is.finite(max_change)) {
-      if (is.null(prev)) prev <- matrix(1, n, G)   # start from the reference (status-quo) days
+      # start from the current days relative to the reference days (e.g. status quo
+      # relative to the MMSY effort), so the transition is phased
+      if (is.null(prev)) prev <- if (!is.null(st$E) && !is.null(st$caps))
+        matrix(pmin(st$E / pmax(st$caps, 1e-9), 10), n, G) else matrix(1, n, G)
       # relative to last year's fraction; the upper bound starts from at least 0.05 so a
       # segment at zero (Emin = 0) can reopen
       mult <- pmin(pmax(mult, prev * (1 - max_change)), pmax(prev, 0.05) * (1 + max_change))
@@ -116,6 +161,7 @@ hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rh
     list(mult = mult, open = opm)
   }
   attr(rule, "own") <- own; attr(rule, "drive") <- drive; attr(rule, "units") <- units
+  attr(rule, "weights") <- val_u * own
   rule
 }
 
