@@ -27,6 +27,21 @@ plot_kobe(list("Status quo" = sq, "Safeguarded MMSY" = opt), sys)
 
 See `vignette("mmsyFM")` for yield curves and feedback harvest strategies.
 
+## Shiny app
+
+```r
+mmsyFM::run_app()
+```
+
+The app has six tabs:
+
+1. **Set-up:** system, status quo, tuning of the daily costs.
+2. **Equilibrium explorer:** days by segment, closures.
+3. **Yield curves:** conceptual treatments compared.
+4. **Safeguarded MMSY.**
+5. **Harvest strategy:** rule, uncertainty, projections.
+6. **Trigger tuning.**
+
 ## Model
 
 | Layer | Content |
@@ -49,7 +64,7 @@ A system is four tables (see `read_ms_system()`; the Atlantic example is in `ins
 
 ## Roadmap
 
-- [ ] Shiny app (`inst/shiny/mmsyFM`, branch `dev-shiny`): set-up, equilibrium explorer, yield curves, optimiser, harvest strategies, tuning.
+- [x] Shiny app skeleton (`inst/shiny/mmsyFM`, `run_app()`). Next: Gulf of Thailand preset in the app, upload checks, download of results, trade-off plots across runs.
 - [ ] Gulf of Thailand preset: 18 + 2 groups (`got_species()`); trawl (3 grounds), purse seine (mackerel/scad, anchovy/small pelagics) and small-scale (5 coastal tactics); conditioning on the 2024 depletions.
 - [ ] Monthly closures, CPUE-based rules, SSCOM-type effort dynamics (Thorson et al. 2013).
 
