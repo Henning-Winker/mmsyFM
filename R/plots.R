@@ -39,37 +39,88 @@ ref_F <- function() geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewid
 
 #' Kobe plot of equilibrium states
 #'
-#' One point per stock, one panel per scenario.
+#' One point per stock, one panel per scenario. With `zones = "hcr"` the
+#' background follows the WKREF/GFCM convention of `FLRef::plotWKREF()`,
+#' with zones cut by the harvest control rule: below Bthresh, red above the
+#' HCR line and yellow below it; above Bthresh, orange above and green
+#' below; a dark overlay below Blim. The HCR line is F = 0 up to `Bclose`,
+#' a linear ramp to `Ftgt` at `Btrigger`, and `Ftgt` above.
 #'
 #' @param states named list of states with `BBmsy` and `FFmsy` (e.g. from
 #'   [ms_status_quo()] or [ms_optimise()]).
 #' @param sys an `ms_system`.
-#' @param Bpa,Blim reference points relative to Bmsy.
+#' @param Bpa,Blim reference points relative to Bmsy (`Bpa` is Bthresh).
+#' @param Btrigger,Ftgt,Bclose HCR trigger, target F (relative to Fmsy) and
+#'   biomass at which F reaches zero (default `Blim`, as in [hcr_effort()]).
+#' @param zones `"hcr"` (coloured zones and the HCR line) or `"simple"`.
+#' @param alpha opacity of the zones.
 #' @return A ggplot.
 #' @export
-plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25) {
+#' @examples
+#' sys <- atlantic_system()
+#' \donttest{
+#' sq <- ms_status_quo(sys, capacity = 1000, gamma = 1.5, years = 200)
+#' plot_kobe(list("Status quo" = sq), sys)
+#' }
+plot_kobe <- function(states, sys, Bpa = 0.5, Blim = 0.25, Btrigger = 0.8, Ftgt = 1,
+                      Bclose = Blim, zones = c("hcr", "simple"), alpha = 1) {
+  zones <- match.arg(zones)
   d <- do.call(rbind, lapply(names(states), function(nm)
     data.frame(scenario = nm, code = sys$code, group = sys$group,
                BBmsy = unname(states[[nm]]$BBmsy), FFmsy = unname(states[[nm]]$FFmsy))))
   d$scenario <- factor(d$scenario, names(states))
+  xmax <- max(2.1, max(d$BBmsy, na.rm = TRUE) * 1.05)
+  ymax <- max(1.5 * Ftgt, max(d$FFmsy, na.rm = TRUE) * 1.1)
+  if (zones == "simple") {
+    p <- ggplot(d, aes(BBmsy, FFmsy)) +
+      annotate("rect", xmin = 1, xmax = Inf, ymin = -Inf, ymax = 1, fill = "#0ca30c", alpha = 0.07) +
+      annotate("rect", xmin = -Inf, xmax = 1, ymin = 1, ymax = Inf, fill = "#d03b3b", alpha = 0.07) +
+      geom_vline(xintercept = 1, colour = ms_ink[["ref"]], linewidth = 0.3) +
+      geom_vline(xintercept = Bpa, colour = ms_ink[["ref"]], linewidth = 0.3, linetype = "dashed") +
+      geom_vline(xintercept = Blim, colour = ms_ink[["ref"]], linewidth = 0.3, linetype = "dotted") +
+      geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewidth = 0.3) +
+      geom_point(aes(colour = group), size = 2.6, stroke = 0) +
+      scale_colour_manual(values = ms_cols, name = NULL)
+  } else {
+    hcr <- function(b) ifelse(b <= Bclose, 0, ifelse(b < Btrigger, Ftgt * (b - Bclose) / (Btrigger - Bclose), Ftgt))
+    zone <- function(x0, x1, lower, fill) {
+      b <- sort(unique(c(seq(x0, x1, length.out = 200), Bclose, Btrigger)))
+      b <- b[b >= x0 & b <= x1]
+      f <- pmin(hcr(b), ymax)
+      geom_ribbon(data = data.frame(b = b, lo = if (lower) 0 else f, hi = if (lower) f else ymax),
+                  aes(x = b, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = fill, alpha = alpha)
+    }
+    bl <- seq(0, xmax, length.out = 400)
+    lab_ref <- function(x, y, l, ...) annotate("text", x = x, y = y, label = l, parse = TRUE, size = 3.3, ...)
+    p <- ggplot(d, aes(BBmsy, FFmsy)) +
+      zone(0, Bpa, TRUE, "yellow") + zone(0, Bpa, FALSE, "red") +
+      zone(Bpa, xmax, TRUE, "green") + zone(Bpa, xmax, FALSE, "orange") +
+      annotate("rect", xmin = 0, xmax = Blim, ymin = 0, ymax = ymax, fill = "red4", alpha = 0.7) +
+      annotate("line", x = bl, y = hcr(bl), colour = "black", linewidth = 0.4) +
+      annotate("segment", x = 0, xend = Btrigger, y = Ftgt, yend = Ftgt, linetype = "dashed", linewidth = 0.3) +
+      annotate("segment", x = Btrigger, xend = Btrigger, y = 0, yend = Ftgt, linetype = "dashed", linewidth = 0.3) +
+      annotate("segment", x = Blim, xend = Blim, y = 0, yend = Ftgt, linewidth = 0.8) +
+      annotate("segment", x = Bpa, xend = Bpa, y = 0, yend = hcr(Bpa), linewidth = 0.3) +
+      annotate("segment", x = 1, xend = 1, y = 0, yend = Ftgt, colour = "blue", linewidth = 0.8) +
+      lab_ref(Blim, Ftgt * 1.05, "B[lim]", hjust = 0, vjust = 0) +
+      lab_ref(Bpa, Ftgt * 0.05, "B[thresh]", hjust = 1.05, vjust = 0) +
+      lab_ref(Btrigger, Ftgt * 1.05, "B[trigger]", hjust = 1, vjust = 0) +
+      lab_ref(1.02, Ftgt * 0.05, "B[MSY]", hjust = 0, vjust = 0) +
+      lab_ref(xmax * 0.98, Ftgt * 1.03, "F[MSY]", hjust = 1, vjust = 0) +
+      geom_point(aes(fill = group), shape = 21, size = 2.8, stroke = 0.5, colour = "black") +
+      scale_fill_manual(values = ms_cols, name = NULL)
+  }
   lab <- if (requireNamespace("ggrepel", quietly = TRUE))
     ggrepel::geom_text_repel(aes(label = code), size = 2.7, colour = ms_ink[["primary"]],
-                             min.segment.length = 0.2, segment.colour = ms_ink[["muted"]],
+                             bg.colour = if (zones == "hcr") "white" else NA, bg.r = 0.12,
+                             min.segment.length = 0.2, segment.colour = ms_ink[["primary"]],
                              segment.size = 0.25, box.padding = 0.25, max.overlaps = Inf, seed = 1)
     else geom_text(aes(label = code), size = 2.7, vjust = -0.9, colour = ms_ink[["primary"]])
-  ggplot(d, aes(BBmsy, FFmsy)) +
-    annotate("rect", xmin = 1, xmax = Inf, ymin = -Inf, ymax = 1, fill = "#0ca30c", alpha = 0.07) +
-    annotate("rect", xmin = -Inf, xmax = 1, ymin = 1, ymax = Inf, fill = "#d03b3b", alpha = 0.07) +
-    geom_vline(xintercept = 1, colour = ms_ink[["ref"]], linewidth = 0.3) +
-    geom_vline(xintercept = Bpa, colour = ms_ink[["ref"]], linewidth = 0.3, linetype = "dashed") +
-    geom_vline(xintercept = Blim, colour = ms_ink[["ref"]], linewidth = 0.3, linetype = "dotted") +
-    geom_hline(yintercept = 1, colour = ms_ink[["ref"]], linewidth = 0.3) +
-    geom_point(aes(colour = group), size = 2.6, stroke = 0) + lab +
-    facet_wrap(~ scenario) +
-    scale_colour_manual(values = ms_cols, name = NULL) +
-    scale_x_continuous(limits = c(0, 2.1)) +
-    scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.12))) +
-    labs(x = "B / Bmsy", y = "F / Fmsy") + theme_ms()
+  p + lab + facet_wrap(~ scenario) +
+    scale_x_continuous(limits = c(0, xmax), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, ymax), expand = c(0, 0)) +
+    labs(x = "B / Bmsy", y = "F / Fmsy") + theme_ms() +
+    (if (zones == "hcr") theme(panel.grid = element_blank(), panel.spacing = unit(1, "lines")) else NULL)
 }
 
 #' Equilibrium yield curves
@@ -119,7 +170,7 @@ plot_projection <- function(runs, what = c("BBmsy", "FFmsy", "yield"), Bpa = 0.5
   what <- match.arg(what); sys <- runs[[1]]$sys
   d <- do.call(rbind, lapply(names(runs), function(nm) {
     x <- runs[[nm]]; ny <- dim(x$B)[1]
-    a <- switch(what, BBmsy = sweep(x$B, 3, sys$K / 2, "/"), FFmsy = sweep(x$F, 3, sys$r / 2, "/"), yield = x$C)
+    a <- switch(what, BBmsy = sweep(x$B, 3, sys$K / 2, "/"), FFmsy = ffmsy(x$F, sys$r), yield = x$C)
     q <- q90(a, c(1, 3))
     data.frame(run = nm, year = rep(seq_len(ny), sys$S), species = rep(sys$code, each = ny),
                lo = as.vector(q[1, , ]), med = as.vector(q[2, , ]), hi = as.vector(q[3, , ]))

@@ -31,8 +31,10 @@ light-luring seine, and scads by both seines and trawl. Prices are
 relative and indicative. \code{dep_2024} (mse.SEA) is carried in the species
 table but the stocks are not yet conditioned on it: daily costs were
 tuned (\code{\link[=ms_tune]{ms_tune()}}, \code{cap = c(450, 225, 3000)}, \code{gamma = 1.5}) to 12/6/82\%
-of days and a median status of 0.5 Bmsy, close to the median 2024
-depletion. The outer-shelf trawl stocks collapse at this status quo.
+of days and a median status of 0.5 Bmsy (reached: 0.57), close to the median 2024
+depletion. All stocks have \code{F_cap = 1.95} (a floor at 0.05 Bmsy, so the
+tuned starting point has no extinctions); at the status quo the lowest
+stocks are Indo-Pacific mackerel, scads and squid (about 0.3 Bmsy).
 }
 \examples{
 sys <- got_system_draft()

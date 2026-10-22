@@ -38,7 +38,8 @@ ms_simulate(
   crn = NULL,
   keep = c("final", "all"),
   avg_years = 10,
-  F_cap = sys$F_cap \%||\% Inf
+  F_cap = sys$F_cap \%||\% Inf,
+  F_cap_p = NULL
 )
 }
 \arguments{
@@ -129,11 +130,18 @@ repeated for each of several control settings}
 \item{avg_years}{years kept when \code{keep = "final"}.}
 
 \item{F_cap}{cap on each stock's realised F, in units of Fmsy (scalar or
-one per stock; default \code{sys$F_cap}, else \code{Inf}). Applied monthly as
-F_cap Fmsy / 12. Extra effort on a capped stock catches nothing more, so
+one per stock; default \code{sys$F_cap}, else \code{Inf}). F/Fmsy is measured as
+the harvest-rate ratio h/hmsy (see \code{\link[=ffmsy]{ffmsy()}}); the cap on h is converted
+to instantaneous F and applied monthly as one twelfth. Extra effort on a capped stock catches nothing more, so
 its catch per day falls (economic extinction: the stock is left to rare
 by-catch). In Schaefer equilibrium B/Bmsy = 2 - F/Fmsy, so a cap below 2
 sets a floor: \code{F_cap = 1.95} keeps every stock at or above 0.05 Bmsy.}
+
+\item{F_cap_p}{shape of the cap: \code{Inf} = hard cap, min(F, F_cap); a finite
+p = smooth cap, (F^-p + F_cap^-p)^(-1/p), which approaches F_cap
+without a kink (p = 8 lowers F by about 1.5\% at 1.5 Fmsy when F_cap = 1.95).
+Default \code{NULL}: hard without process error (equilibrium and tuning),
+p = 8 with process error (stochastic runs).}
 }
 \value{
 An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, and the system.

@@ -153,8 +153,9 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
   E0 <- sum(ref$E_seg)
   q <- ref$FFmsy * sys$r / 2 / E0
   E <- c(0, mult) * E0
-  BK <- pmax(outer(E, q / sys$r, function(e, a) 1 - e * a), 0)
-  out <- data.frame(mult = c(0, mult), E = E, yield = rowSums(outer(E, q * sys$K) * BK), profit = NA,
+  hE <- pmin(outer(E, q), 1)                       # harvest rate (q is per day, in h units)
+  BK <- pmax(1 - sweep(hE, 2, sys$r, "/"), 0)
+  out <- data.frame(mult = c(0, mult), E = E, yield = rowSums(hE * sweep(BK, 2, sys$K, "*")), profit = NA,
                     min_BBmsy = apply(2 * BK, 1, min), n_below_Bpa = rowSums(2 * BK < Bpa))
   attr(out, "BBmsy") <- 2 * BK
   out

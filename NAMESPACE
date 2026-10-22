@@ -3,6 +3,7 @@
 S3method(print,ms_system)
 export(allocate_effort)
 export(atlantic_system)
+export(ffmsy)
 export(got_species)
 export(got_system_draft)
 export(hcr_effort)
