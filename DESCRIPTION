@@ -1,0 +1,34 @@
+Package: mmsyFM
+Title: Multispecies MSY Fleet Model for Mixed-Fishery Harvest Strategies
+Version: 0.1.0
+Authors@R: 
+    person("Henning", "Winker", email = "henning.winker@fao.org", role = c("aut", "cre"))
+Description: Simulates mixed fisheries in which fleet segments (e.g. demersal,
+    pelagic and mixed or small-scale) allocate their fishing days across
+    metiers by expected profit, on top of Schaefer surplus-production stocks
+    with seasonal availability and JABBA-type process error. Finds the
+    multispecies maximum sustainable yield (MMSY) subject to a safeguard for
+    every stock, tunes the fleet to an open-access status quo, and tunes and
+    tests effort- and closure-based harvest strategies with assessment and
+    implementation error, data lags, species complexes and nominal assignment
+    of stocks to fleets.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Depends: 
+    R (>= 4.1)
+Imports: 
+    ggplot2 (>= 3.4.0),
+    stats,
+    utils
+Suggests: 
+    ggrepel,
+    knitr,
+    patchwork,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/Henning-Winker/mmsyFM
+BugReports: https://github.com/Henning-Winker/mmsyFM/issues

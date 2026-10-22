@@ -1,0 +1,30 @@
+test_that("atlantic_system builds and round-trips through CSV", {
+  sys <- atlantic_system()
+  expect_s3_class(sys, "ms_system")
+  expect_equal(c(sys$S, sys$M, sys$G), c(10, 6, 3))
+  tmp <- tempfile()
+  write_ms_system(sys, tmp, "x")
+  s2 <- read_ms_system(tmp, "x", effort_season_amp = 0.3)
+  expect_equal(s2$Q, sys$Q)
+  expect_equal(s2$cost, sys$cost)
+  expect_equal(s2$eff, sys$eff)
+  expect_equal(s2$cost_seg, sys$cost_seg, tolerance = 1e-6)
+})
+
+test_that("ms_system validates its tables", {
+  sp <- data.frame(species = c("a", "b"), r = c(0.5, 0.3), K = c(100, 50), price = c(1, 2))
+  me <- data.frame(metier = c("m1", "m2"))
+  q <- matrix(c(0.01, 0, 0, 0.02), 2, dimnames = list(c("m1", "m2"), c("a", "b")))
+  sg <- data.frame(segment = "fleet", loyalty = 0, home = "")
+  sys <- ms_system(sp, me, q, sg)
+  expect_equal(sys$G, 1)
+  expect_error(ms_system(sp[, -2], me, q, sg), "needs column")
+  expect_error(ms_system(sp, me, q[, 1, drop = FALSE], sg), "catchability")
+  expect_error(ms_system(sp, me, q, transform(sg, home = "nope")), "unknown home")
+})
+
+test_that("got_species reads the Gulf of Thailand groups", {
+  g <- got_species()
+  expect_equal(nrow(g), 18)
+  expect_true(all(c("species", "K", "r", "dep_2024") %in% names(g)))
+})

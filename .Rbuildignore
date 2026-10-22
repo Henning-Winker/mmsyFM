@@ -1,0 +1,13 @@
+^LICENSE\.md$
+^README\.Rmd$
+^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^dev$
+^.*\.Rproj$
+^\.Rproj\.user$
+^doc$
+^Meta$
+^doc$
+^Meta$

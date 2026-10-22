@@ -1,0 +1,12 @@
+url: https://henning-winker.github.io/mmsyFM/
+template:
+  bootstrap: 5
+reference:
+  - title: System
+    contents: [ms_system, read_ms_system, write_ms_system, atlantic_system, got_species, print.ms_system]
+  - title: Simulation and equilibrium
+    contents: [ms_simulate, ms_summary, ms_open_access, ms_status_quo, ms_tune, ms_yield_curve, ms_shared_q_curve, ms_optimise, allocate_effort]
+  - title: Harvest strategies
+    contents: [hcr_effort, ms_tune_hcr, perf_rows, ms_performance, proc_sd_from_r, relsig_jabba]
+  - title: Plots
+    contents: [plot_kobe, plot_yield_curves, plot_projection, plot_fleet, plot_catchability, theme_ms]

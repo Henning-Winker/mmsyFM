@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Rdata
+*.Rcheck/
+mmsyFM_*.tar.gz
+docs/
+inst/doc
+/doc/
+/Meta/
+/doc/
+/Meta/
