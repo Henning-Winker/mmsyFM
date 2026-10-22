@@ -57,7 +57,9 @@ ms_simulate(
 \item{phi}{entry/exit rate of each segment: E_t+1 = min(cap, E_t * exp(phi * margin_g)),
 margin_g = segment profit / segment revenue; 0 = effort always at the cap}
 
-\item{open}{metier access (length M, or function(year) -> length M)}
+\item{open}{métier access, 0-1 (the open share of each métier's ground or
+season): a vector of length M (all months), a 12 x M matrix (by month, e.g.
+a seasonal closure), or a function of the year returning either.}
 
 \item{hcr}{optional function(state) -> n x G multiplier on caps}
 
