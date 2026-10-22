@@ -187,11 +187,11 @@ behavioural fleet.
    at `Blim` (0.25 Bmsy) and below. The rule reduces effort but never closes
    a segment; since F scales with days, the floor puts about 0.1 x the
    status-quo F on each stock (`Emin = 0` allows a full closure).
-4. **Smoothing and implementation.** The fraction may change by at most
-   `max_change` a year, in units of the status-quo days (0.2 = 20% of the
-   status-quo days up or down), so a closed segment reopens gradually once
-   its stocks recover; realised days differ from allowed days by
-   implementation error (CV `impl_cv`).
+4. **Smoothing and implementation.** The days may change by at most
+   `max_change` a year relative to the previous year (0.2 = 20% up or down,
+   as for TAC changes), starting from the status quo, so cuts and recoveries
+   are phased; realised days differ from allowed days by implementation
+   error (CV `impl_cv`).
 
 **Mixed fleets.** A mixed or generalist segment fishes many metiers, so it
 answers for many stocks, including the choke stock, and is cut whenever that
@@ -368,7 +368,8 @@ fraction of the reference (status-quo) days is
 
 $$f_{g,t} = E_{min} + (1 - E_{min}) \min\left(1, \max\left(0, \frac{\min_{u \in U_g} \hat b_{u,t} - B_{lim}}{B_{trig} - B_{lim}}\right)\right)$$
 
-limited to $|f_{g,t} - f_{g,t-1}| \le \Delta$ (with $f_{g,0} = 1$). The cap is
+limited to $(1 - \Delta) f_{g,t-1} \le f_{g,t} \le (1 + \Delta) \max(f_{g,t-1}, 0.05)$
+(with $f_{g,0} = 1$). The cap is
 $\bar E_{g,t} = f_{g,t} E^{ref}_g e^{\xi_{g,t}}$ with implementation error
 $\xi$. A closure for unit $u$ sets the open share of the metiers that drive it
 ($q_{js} \ge$ `close_q` $\max_j q_{js}$) to the same ramp, from 0 at

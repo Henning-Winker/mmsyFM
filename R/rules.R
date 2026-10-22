@@ -13,10 +13,11 @@
 #'   segment is set to (at and below Blim), default 0.1. F scales with days,
 #'   so the floor puts about `Emin` x the reference F on each stock; 0 lets the
 #'   rule close a segment completely.
-#' @param max_change limit on the annual change of each segment's fraction of
-#'   its reference days, in absolute terms (0.2 = at most 20% of the
-#'   reference days up or down per year), so a closed segment can reopen.
-#'   The first year starts from the reference days (fraction 1).
+#' @param max_change limit on the annual change of each segment's days,
+#'   relative to the previous year (0.2 = at most 20% up or down), as for TAC
+#'   changes. The first year starts from the reference days (fraction 1); a
+#'   segment at zero (with `Emin = 0`) can reopen from 5% of its reference
+#'   days.
 #' @param assessed,assign,complexes,complex_index see Details.
 #' @details
 #'
@@ -31,8 +32,8 @@
 #' Stocks in `close` are protected by a closure instead: the open share of
 #' the metiers that drive them (catchability >= `close_q` of the stock's
 #' highest) follows the same ramp, and they are left out of the effort rule.
-#' `max_change` limits the annual change of each segment's fraction (in
-#' units of the reference days).
+#' `max_change` limits the annual change of each segment's days relative to
+#' the previous year.
 #'
 #' `Btrig` (effort rule) and `Btrig_close` (closure) may be vectors with one
 #' value per row of the simulation, so a grid of triggers runs in one call.
@@ -104,7 +105,9 @@ hcr_effort <- function(sys, Btrig = 0.8, Blim = 0.25, assess_cv = 0.2, assess_rh
       else rep(1, n)), n, G)
     if (is.finite(max_change)) {
       if (is.null(prev)) prev <- matrix(1, n, G)   # start from the reference (status-quo) days
-      mult <- pmin(pmax(mult, prev - max_change), prev + max_change)   # absolute: zero is not a trap
+      # relative to last year's fraction; the upper bound starts from at least 0.05 so a
+      # segment at zero (Emin = 0) can reopen
+      mult <- pmin(pmax(mult, prev * (1 - max_change)), pmax(prev, 0.05) * (1 + max_change))
     }
     prev <<- mult
     if (!length(ic)) return(mult)

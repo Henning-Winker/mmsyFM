@@ -35,10 +35,11 @@ hcr_effort(
 
 \item{close_q}{métiers with >= \code{close_q} of the stock's highest catchability are closed.}
 
-\item{max_change}{limit on the annual change of each segment's fraction of
-its reference days, in absolute terms (0.2 = at most 20\% of the
-reference days up or down per year), so a closed segment can reopen.
-The first year starts from the reference days (fraction 1).}
+\item{max_change}{limit on the annual change of each segment's days,
+relative to the previous year (0.2 = at most 20\% up or down), as for TAC
+changes. The first year starts from the reference days (fraction 1); a
+segment at zero (with \code{Emin = 0}) can reopen from 5\% of its reference
+days.}
 
 \item{Emin}{minimum effort: the lowest fraction of its reference days a
 segment is set to (at and below Blim), default 0.1. F scales with days,
@@ -67,8 +68,8 @@ stock's highest catchability).
 Stocks in \code{close} are protected by a closure instead: the open share of
 the metiers that drive them (catchability >= \code{close_q} of the stock's
 highest) follows the same ramp, and they are left out of the effort rule.
-\code{max_change} limits the annual change of each segment's fraction (in
-units of the reference days).
+\code{max_change} limits the annual change of each segment's days relative to
+the previous year.
 
 \code{Btrig} (effort rule) and \code{Btrig_close} (closure) may be vectors with one
 value per row of the simulation, so a grid of triggers runs in one call.

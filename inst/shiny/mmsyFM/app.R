@@ -39,7 +39,7 @@ tips <- list(
   hs_btrig = "When an assessed stock falls below this B/Bmsy, the days of the segments that catch it are cut: full days at the trigger, a linear ramp down to zero at Blim (0.25 Bmsy). The most depleted stock a segment catches sets its cut.",
   hs_btrig_close = "For the closure stock: the metiers that drive it are closed for a share of the time that ramps from 0 at this trigger to fully closed at Blim. It replaces the effort rule for that stock.",
   hs_emin = "The rule never sets a segment below this share of its status-quo days (at and below Blim): a minimum effort instead of a closure. F scales with days, so 0.1 puts about 0.1 x the status-quo F on each stock. 0 allows a full closure.",
-  hs_maxchange = "Largest change in a segment's days from one year to the next, as a share of its status-quo days (0.2 = up or down by at most 20% of the status-quo days a year). A closed segment reopens at this pace once its stocks recover. 1 = no limit.",
+  hs_maxchange = "Largest change in a segment's days from one year to the next, relative to last year (0.2 = at most 20% up or down), as for TAC changes: a cut from the status quo to the 10% floor takes about 10 years. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
   hs_impl = "Implementation error: the days fished differ from the days allowed by a lognormal error with this CV.",

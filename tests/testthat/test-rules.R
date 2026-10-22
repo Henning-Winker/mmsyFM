@@ -35,7 +35,8 @@ test_that("minimum effort floor and phased change limit", {
   frac <- sweep(x$E_seg[, 1, ], 2, sq$E_seg, "/")
   expect_gt(min(frac), 0.1 - 1e-6)                    # never below the floor
   expect_gt(min(frac[1, ]), 0.8 - 1e-6)               # year 1: at most 20% below the status quo
-  expect_lt(max(abs(diff(frac))), 0.2 + 1e-6)         # at most 20% of the reference days a year
+  ch <- frac[-1, ] / frac[-nrow(frac), ]
+  expect_lt(max(abs(ch - 1)), 0.2 + 1e-6)             # at most 20% change on last year
   z <- run(Emin = 0, max_change = Inf)
   expect_lt(min(z$E_seg[, 1, ]), 1e-6)                # without a floor the rule can close a segment
 })
