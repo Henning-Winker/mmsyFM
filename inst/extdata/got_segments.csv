@@ -1,0 +1,4 @@
+segment,share_target,loyalty,efficiency,cost_multiplier,vessel_cv,home
+trawl,0.12,1,1,0.3427,0.25,TR_inner;TR_mid;TR_outer
+purse_seine,0.06,1,1,0.27,0.25,PS_mackerel;PS_anchovy
+small_scale,0.82,1,0.075,0.0246,0.25,SS_crab;SS_shrimp;SS_pelagic_gillnet;SS_hook_trap;SS_cephalopod

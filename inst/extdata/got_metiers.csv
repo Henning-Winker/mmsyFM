@@ -1,0 +1,11 @@
+metier,tactic,ground
+SS_crab,Crab gillnet and trap,coastal
+SS_shrimp,Shrimp trammel and gillnet,coastal
+SS_pelagic_gillnet,Encircling and drift gillnet,coastal
+SS_hook_trap,"Hook and line, fish trap",coastal
+SS_cephalopod,Cephalopod trap and jig,coastal
+TR_inner,"Trawl inner shelf (15-30 m, mud)",offshore
+TR_mid,Trawl mid shelf (30-50 m),offshore
+TR_outer,"Trawl outer shelf (50-80 m, sand)",offshore
+PS_mackerel,Mackerel/scad purse seine,offshore
+PS_anchovy,Light-luring anchovy/small-pelagic purse seine,offshore

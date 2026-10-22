@@ -10,14 +10,16 @@ ms_system(
   catchability,
   segments,
   cost_share = 0.4,
-  effort_season_amp = 0
+  effort_season_amp = 0,
+  F_cap = Inf
 )
 }
 \arguments{
 \item{species}{data frame, one row per stock, with columns \code{species},
 \code{r}, \code{K} and \code{price}; optional \code{code} (short label), \code{group},
-\code{season_amp} (0 = resident, 1 = absent at the low point) and
-\code{season_peak} (month of highest availability).}
+\code{season_amp} (0 = resident, 1 = absent at the low point),
+\code{season_peak} (month of highest availability) and \code{F_cap} (cap on
+realised F in units of Fmsy, see \code{\link[=ms_simulate]{ms_simulate()}}).}
 
 \item{metiers}{data frame, one row per métier, with column \code{metier};
 optional \code{tactic}, \code{ground} and \code{cost} (cost per day of a vessel with
@@ -41,6 +43,9 @@ used by \code{\link[=ms_tune]{ms_tune()}}).}
 
 \item{effort_season_amp}{seasonal amplitude of effort (0 = equal months;
 effort peaks in July).}
+
+\item{F_cap}{cap on realised F (units of Fmsy) for stocks without an
+\code{F_cap} column value; \code{Inf} = no cap, 1.95 = floor at 0.05 Bmsy.}
 }
 \value{
 An object of class \code{ms_system}.

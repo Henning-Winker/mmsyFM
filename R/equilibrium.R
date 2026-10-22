@@ -41,78 +41,6 @@ ms_status_quo <- function(sys, capacity = 1000, ...) ms_open_access(sys, cap = c
 #' Newton steps with a forward-difference Jacobian; the base point and the G
 #' perturbed points run in one vectorised call (warm-started).
 #'
-#' @param shares  target share of active days by segment (default the
-#'   `share_target` of the segment table)
-#' @param status  c(median = x): median B/Bmsy; c(min = x): the weakest stock;
-#'   c(E_total = x): total active days
-#' @param cap     fleet capacity (registered days) by segment
-#' @param ...     passed to ms_simulate() (gamma, ...)
-#' @return the tuned system (cost_seg replaced), with attributes "tuning"
-#'   (history), "status_quo" (the open-access equilibrium) and "converged"
-ms_tune <- function(sys, shares = sys$segments,
-                    status = c(median = 0.9), cap = 1000, max_iter = 25, tol = 0.02,
-                    h = 0.05, max_step = 0.5, years_first = 400, years = 250, avg_years = 30,
-                    verbose = TRUE, ...) {
-  G <- sys$G; seg <- names(sys$segments)
-  shares <- shares[seg] / sum(shares)
-  stat_fun <- switch(names(status),
-    median  = function(BB, E) apply(BB, 1, stats::median),
-    min     = function(BB, E) apply(BB, 1, min),
-    E_total = function(BB, E) rowSums(E),
-    stop("status must be named median, min or E_total"))
-  resid <- function(x) {
-    E <- apply(x$E_seg, c(2, 3), mean); BB <- attr(ms_summary(x), "BBmsy")
-    sh <- E / rowSums(E)
-    cbind(log(pmax(sh[, -G, drop = FALSE], 1e-4) / matrix(shares[-G], nrow(E), G - 1, byrow = TRUE)),
-          log(pmax(stat_fun(BB, E), 1e-4) / status))
-  }
-  lc <- log(sys$cost_seg); B0 <- NULL; E0 <- NULL; hist <- list(); conv <- FALSE
-  best <- list(err = Inf, lc = lc)
-  for (it in seq_len(max_iter)) {
-    LC <- rbind(lc, t(lc + diag(h, G)))                    # base + G perturbations
-    nr <- nrow(LC)
-    x <- ms_simulate(sys, matrix(cap, nr, G, byrow = TRUE), years = if (it == 1) years_first else years,
-                     cost_seg = exp(LC), capacity = matrix(cap, nr, G, byrow = TRUE),
-                     B_init = if (is.null(B0)) NULL else B0[rep(1, nr), , drop = FALSE],
-                     E_init = if (is.null(E0)) NULL else E0[rep(1, nr), , drop = FALSE],
-                     avg_years = avg_years, ...)
-    R <- resid(x); r0 <- R[1, ]
-    E <- apply(x$E_seg, c(2, 3), mean)
-    hist[[it]] <- data.frame(iter = it, t(setNames(round(exp(lc), 4), paste0("cost_", seg))),
-                             t(setNames(round(E[1, ] / sum(E[1, ]), 3), paste0("share_", seg))),
-                             status = round(exp(r0[G]) * status, 3), check.names = FALSE)
-    if (verbose) cat(sprintf("iter %2d | costs %s | shares %s | %s %.3f\n", it,
-                             paste(sprintf("%.3f", exp(lc)), collapse = "/"),
-                             paste(sprintf("%.3f", E[1, ] / sum(E[1, ])), collapse = "/"),
-                             names(status), exp(r0[G]) * status))
-    if (max(abs(r0)) < best$err) best <- list(err = max(abs(r0)), lc = lc)
-    if (max(abs(r0)) < tol) { conv <- TRUE; break }
-    J <- t((R[-1, , drop = FALSE] - matrix(r0, G, G, byrow = TRUE)) / h)   # d r / d log c
-    step <- tryCatch(-solve(J, r0), error = function(e) -0.3 * sign(r0))
-    if (max(abs(step)) > max_step) step <- step * max_step / max(abs(step))
-    lc <- lc + step
-    B0 <- matrix(apply(x$B[, 1, , drop = FALSE], 3, mean), 1); E0 <- matrix(pmax(E[1, ], 1), 1)
-  }
-  sys$cost_seg <- setNames(exp(best$lc), seg)                 # best iterate
-  attr(sys, "tuning") <- do.call(rbind, hist)
-  attr(sys, "max_error") <- best$err
-  attr(sys, "status_quo") <- ms_open_access(sys, cap = cap, avg_years = avg_years, ...)
-  attr(sys, "converged") <- conv
-  sys
-}
-
-
-#' Tune daily costs so that a target fleet composition is an open-access equilibrium
-#'
-#' At open access each segment's active days are the share of its vessels
-#' that break even (heterogeneous vessel efficiency), so the composition of
-#' the active fleet is set by the daily costs. The G log cost multipliers are
-#' solved so that G residuals vanish: the shares of days of the first G - 1
-#' segments and one status target for the stocks,
-#'   r = (log share_g / target_g, g < G;  log status / target).
-#' Newton steps with a forward-difference Jacobian; the base point and the G
-#' perturbed points run in one vectorised call (warm-started).
-#'
 #' @param sys     an `ms_system`.
 #' @param max_iter,tol,h,max_step Newton settings.
 #' @param years_first,years,avg_years years of the first and later runs, and years averaged.
@@ -225,8 +153,9 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
   E0 <- sum(ref$E_seg)
   q <- ref$FFmsy * sys$r / 2 / E0
   E <- c(0, mult) * E0
-  BK <- pmax(outer(E, q / sys$r, function(e, a) 1 - e * a), 0)
-  out <- data.frame(mult = c(0, mult), E = E, yield = rowSums(outer(E, q * sys$K) * BK), profit = NA,
+  hE <- pmin(outer(E, q), 1)                       # harvest rate (q is per day, in h units)
+  BK <- pmax(1 - sweep(hE, 2, sys$r, "/"), 0)
+  out <- data.frame(mult = c(0, mult), E = E, yield = rowSums(hE * sweep(BK, 2, sys$K, "*")), profit = NA,
                     min_BBmsy = apply(2 * BK, 1, min), n_below_Bpa = rowSums(2 * BK < Bpa))
   attr(out, "BBmsy") <- 2 * BK
   out

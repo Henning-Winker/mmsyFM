@@ -19,22 +19,6 @@ ms_tune(
   verbose = TRUE,
   ...
 )
-
-ms_tune(
-  sys,
-  shares = sys$segments,
-  status = c(median = 0.9),
-  cap = 1000,
-  max_iter = 25,
-  tol = 0.02,
-  h = 0.05,
-  max_step = 0.5,
-  years_first = 400,
-  years = 250,
-  avg_years = 30,
-  verbose = TRUE,
-  ...
-)
 }
 \arguments{
 \item{sys}{an \code{ms_system}.}
@@ -58,20 +42,8 @@ c(E_total = x): total active days}
 \value{
 the tuned system (cost_seg replaced), with attributes "tuning"
 (history), "status_quo" (the open-access equilibrium) and "converged"
-
-the tuned system (cost_seg replaced), with attributes "tuning"
-(history), "status_quo" (the open-access equilibrium) and "converged"
 }
 \description{
-At open access each segment's active days are the share of its vessels
-that break even (heterogeneous vessel efficiency), so the composition of
-the active fleet is set by the daily costs. The G log cost multipliers are
-solved so that G residuals vanish: the shares of days of the first G - 1
-segments and one status target for the stocks,
-r = (log share_g / target_g, g < G;  log status / target).
-Newton steps with a forward-difference Jacobian; the base point and the G
-perturbed points run in one vectorised call (warm-started).
-
 At open access each segment's active days are the share of its vessels
 that break even (heterogeneous vessel efficiency), so the composition of
 the active fleet is set by the daily costs. The G log cost multipliers are
