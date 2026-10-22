@@ -15,7 +15,6 @@ Description: Simulates mixed fisheries in which fleet segments (e.g. demersal,
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
 Depends: 
     R (>= 4.1)
 Imports: 
@@ -32,3 +31,4 @@ Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/Henning-Winker/mmsyFM
 BugReports: https://github.com/Henning-Winker/mmsyFM/issues
+Config/roxygen2/version: 8.1.1
