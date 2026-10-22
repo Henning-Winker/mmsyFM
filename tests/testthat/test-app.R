@@ -10,6 +10,6 @@ test_that("the Shiny app server computes the status quo and an equilibrium", {
     session$setInputs(days_demersal = 300, days_pelagic = 500, days_mixed = 400,
                       open_m = rv$sys$metiers$name, run_eq = 1)
     expect_gt(eq()$summary$yield, 0)
-    expect_s3_class(output$eq_metier, "character")
+    expect_type(output$eq_metier, "character")
   })
 })
