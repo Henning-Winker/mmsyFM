@@ -30,6 +30,11 @@
 #'   dimnames) or a data frame with a `metier` column and one column per
 #'   stock. Values 0-1.
 #' @param q0 catchability at average density and selectivity 1.
+#' @param distribution optional: each stock's share of its biomass in each
+#'   cell (cells x stocks, columns named by stock), e.g. from species
+#'   distribution models or survey hot spots. It replaces the depth and
+#'   substrate preferences of `species` (which then only needs the column
+#'   `species`); columns are normalised to sum to 1.
 #' @return A catchability matrix (metiers x stocks) with attributes
 #'   `distribution` (cells x stocks), `ground` (cells x metiers, 0/1) and
 #'   `overlap` (share of each stock on each ground).
@@ -43,17 +48,23 @@
 #' mt <- data.frame(metier = c("inner", "outer"), depth_min = c(0, 40), depth_max = c(40, 80))
 #' sel <- matrix(1, 2, 2, dimnames = list(mt$metier, sp$species))
 #' round(ms_landscape(cells, sp, mt, sel), 5)
-ms_landscape <- function(cells, species, metiers, selectivity, q0 = 1e-3) {
+ms_landscape <- function(cells, species, metiers, selectivity, q0 = 1e-3, distribution = NULL) {
   cells <- as.data.frame(cells); species <- as.data.frame(species); metiers <- as.data.frame(metiers)
   for (v in c("depth", "substrate", "area"))
     if (is.null(cells[[v]])) stop("`cells` needs column `", v, "`", call. = FALSE)
-  for (v in c("species", "depth_mean", "depth_sd"))
+  for (v in c("species", if (is.null(distribution)) c("depth_mean", "depth_sd")))
     if (is.null(species[[v]])) stop("`species` needs column `", v, "`", call. = FALSE)
   for (v in c("metier", "depth_min", "depth_max"))
     if (is.null(metiers[[v]])) stop("`metiers` needs column `", v, "`", call. = FALSE)
   sp <- as.character(species$species); met <- as.character(metiers$metier)
   sub <- as.character(cells$substrate); lev <- unique(sub)
   # substrate weights by stock (cells x stocks)
+  if (!is.null(distribution)) {
+    dist <- as.matrix(distribution)
+    if (nrow(dist) != nrow(cells) || !all(sp %in% colnames(dist)))
+      stop("`distribution` needs one row per cell and a column for every stock", call. = FALSE)
+    dist <- dist[, sp, drop = FALSE] * 1
+  } else {
   wsub <- vapply(seq_along(sp), function(i) {
     if (!any(lev %in% names(species))) return(rep(1, nrow(cells)))
     w <- vapply(lev, function(l) if (is.null(species[[l]])) 0 else as.numeric(species[[l]][i]), 0)
@@ -62,6 +73,7 @@ ms_landscape <- function(cells, species, metiers, selectivity, q0 = 1e-3) {
   dens <- vapply(seq_along(sp), function(i)
     stats::dnorm(cells$depth, species$depth_mean[i], species$depth_sd[i]), numeric(nrow(cells)))
   dist <- dens * wsub * cells$area
+  }
   if (any(colSums(dist) <= 0)) stop("stock(s) with no habitat: ", paste(sp[colSums(dist) <= 0], collapse = ", "), call. = FALSE)
   dist <- sweep(dist, 2, colSums(dist), "/"); colnames(dist) <- sp
   # grounds (cells x metiers)
