@@ -68,6 +68,7 @@ tips <- list(
   open_m = "Untick to close a metier all year. Its days move to the open metiers by profit (displacement).",
   yc_close_m = "Used only by the 'Profit-seeking + closure' curve: this one metier is closed all year and its days move to the other metiers. The other curves keep every metier open.",
   opt_closed = "Metiers kept closed all year during the optimisation, e.g. a protected reef.",
+  hs_start = "<b>Assessed status</b>: projections start from the assessed biomass of each stock (where the system has it), with the fleet at its status-quo days, so stocks that are rebuilding or depleted start where they are now. <b>Status-quo equilibrium</b>: every stock starts at the long-run equilibrium of the status-quo days.",
   hs_assessment = "What the rule can see. <b>Indicator species</b>: only the listed stocks are assessed; a segment answers only for the indicators it fishes, and a segment that fishes none is not constrained. <b>Species complexes</b>: the stocks of each complex are assessed as one unit; stocks in no complex are assessed alone. <b>Nominal assignment</b>: every stock is assessed, but each is managed through one segment only; the other segments are not cut for it.",
   hs_assess_agg = "How these rules form a fleet's status from the units it answers for. Compare with the all-stocks rule of the same kind ('HCR, weakest link' or 'HCR, value-weighted'). Differences show most with the weakest link: a complex or a missing assessment can hide a depleted stock. With value-weighted status the healthy, valuable stocks dominate and the rule may rarely cut effort.",
   hs_ind = "The assessed stocks. Default: one per segment, the stock of highest value to that segment.",
@@ -225,6 +226,7 @@ ui <- navbarPage(
         radioButtons("proc_center", info("proc_center", "Process error centred on"), c("median", "mean"), inline = TRUE),
         sliderInput("proc_rho", info("proc_rho", "Process AR(1)"), 0, 0.9, 0.3, 0.1),
         h5("Simulation"),
+        uiOutput("hs_start_ui"),
         numericInput("hs_nsim", info("hs_nsim", "Simulations"), 100, 10, 1000, 10),
         numericInput("hs_years", info("hs_years", "Years"), 40, 10, 100, 5),
         actionButton("run_hs", "Run", class = "btn-primary")),
@@ -444,6 +446,12 @@ server <- function(input, output, session) {
     validate(need(length(input$hs_mclose) > 0, "Tick at least one metier to close for the metier-closure rules."))
     ms_closure(rv$sys, input$hs_mclose, seq(input$hs_mclose_months[1], input$hs_mclose_months[2]), input$hs_mclose_share)
   }
+  # starting state: the assessed biomass where the system has it (dep_now), else the status quo
+  output$hs_start_ui <- renderUI({ sys <- rv$sys; req(sys)
+    if (any(!is.na(sys$dep_now %||% NA)))
+      radioButtons("hs_start", info("hs_start", "Start from"), c("Assessed status" = "assessed",
+        "Status-quo equilibrium" = "equilibrium"), inline = TRUE) })
+  start_B <- function() ms_start(rv$sys, rv$sq, input$hs_start %||% "assessed")
   presets <- reactive(ms_assessment_presets(req(rv$sys)))
   output$hs_ind_ui <- renderUI(selectInput("hs_ind", info("hs_ind", "Indicator species"), rv$sys$species,
     presets()$indicators, multiple = TRUE))
@@ -506,7 +514,7 @@ server <- function(input, output, session) {
   hs <- eventReactive(input$run_hs, {
     sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
     validate(need(length(sel) > 0, "Tick at least one rule."))
-    B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
+    B0 <- matrix(start_B(), n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
     ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr", "hcr_ind", "hcr_cplx", "hcr_asg") %in% sel)) mmsy_ref()
     if ("hcr_ind" %in% sel) validate(need(length(input$hs_ind %||% presets()$indicators) > 0, "Choose at least one indicator species."))
     opc <- if (any(c("mclose_only", "mclose_hcr") %in% sel)) mclose_open()
@@ -569,7 +577,7 @@ server <- function(input, output, session) {
       do.call(ms_tune_hcr, c(list(sys, triggers = seq(input$tu_eff[1], input$tu_eff[2], by = 0.1),
         close = ra$close, close_triggers = if (is.null(ra$close)) NULL else ct,
         risk = c(worst_P_below_Bpa = input$tu_risk), E_ref = mmsy_ref()$caps, open = mmsy_ref()$open,
-        E_init = sq$E_seg, B_init = sq$B,
+        E_init = sq$E_seg, B_init = start_B(),
         nsim = input$tu_nsim, years = input$hs_years, eval_years = max(1, input$hs_years - 19):input$hs_years,
         assess_cv = input$hs_assess, max_change = ra$max_change, Emin = ra$Emin, own_q = ra$own_q), sim_args())))
   })

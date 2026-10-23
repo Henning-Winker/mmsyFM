@@ -7,8 +7,11 @@
 #'   `r`, `K` and `price`; optional `code` (short label), `group`,
 #'   `season_amp` (0 = resident, 1 = absent at the low point),
 #'   `season_peak` (month of highest availability), `F_cap` (cap on
-#'   realised F in units of Fmsy, see [ms_simulate()]) and `dep_init`
-#'   (starting B/K of simulations, default 1; set by [ms_condition()]).
+#'   realised F in units of Fmsy, see [ms_simulate()]), `dep_init`
+#'   (starting B/K of simulations, default 1; set by [ms_condition()]) and
+#'   `dep_now` (the assessed current B/K, `NA` if unknown: projections can
+#'   start from it instead of the status-quo equilibrium, see
+#'   [ms_start()]).
 #' @param metiers data frame, one row per métier, with column `metier`;
 #'   optional `tactic`, `ground` and `cost` (cost per day of a vessel with
 #'   efficiency 1). Without `cost`, costs are `cost_share` times each
@@ -97,6 +100,8 @@ ms_system <- function(species, metiers, catchability, segments,
   fcap <- species$F_cap %||% rep(F_cap, S); fcap[is.na(fcap)] <- F_cap
   dep0 <- species$dep_init %||% rep(1, S); dep0[is.na(dep0)] <- 1
   if (any(dep0 <= 0 | dep0 > 1.5)) stop("`dep_init` must be in (0, 1.5]", call. = FALSE)
+  depn <- if (is.null(species$dep_now)) rep(NA_real_, S) else as.numeric(species$dep_now)
+  if (any(depn <= 0 | depn > 1.5, na.rm = TRUE)) stop("`dep_now` must be in (0, 1.5]", call. = FALSE)
   if (any(fcap <= 0)) stop("`F_cap` must be positive", call. = FALSE)
 
   mt <- data.frame(name = met, tactic = metiers$tactic %||% met, ground = metiers$ground %||% NA,
@@ -104,7 +109,7 @@ ms_system <- function(species, metiers, catchability, segments,
   structure(list(
     species = sp, code = as.character(species$code %||% abbreviate(sp, 3)),
     group = as.character(species$group %||% rep("stock", S)),
-    r = species$r, K = species$K, price = species$price, F_cap = fcap, dep_init = dep0,
+    r = species$r, K = species$K, price = species$price, F_cap = fcap, dep_init = dep0, dep_now = depn,
     metiers = mt, Q = Q, avail = avail, month_w = month_w,
     segments = shares, capacity = capacity, home = home, loyalty = setNames(segments$loyalty, seg), eff = eff,
     cost_seg = cost_seg, vessel_cv = mean(vessel_cv),
@@ -156,7 +161,8 @@ write_ms_system <- function(sys, dir, prefix) {
   amp <- 1 - apply(sys$avail, 2, min)
   wr(data.frame(species = sys$species, code = sys$code, group = sys$group, r = sys$r, K = sys$K,
                 price = sys$price, season_amp = round(amp, 6),
-                season_peak = apply(sys$avail, 2, which.max), F_cap = sys$F_cap %||% Inf, dep_init = sys$dep_init %||% 1), "species")
+                season_peak = apply(sys$avail, 2, which.max), F_cap = sys$F_cap %||% Inf, dep_init = sys$dep_init %||% 1,
+                dep_now = sys$dep_now %||% NA), "species")
   wr(data.frame(metier = sys$metiers$name, tactic = sys$metiers$tactic, ground = sys$metiers$ground,
                 cost = sys$cost), "metiers")
   wr(data.frame(metier = rownames(sys$Q), sys$Q, check.names = FALSE), "catchability")
