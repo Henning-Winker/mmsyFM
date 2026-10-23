@@ -25,6 +25,8 @@ test_that("plan rule regulates only the plan fleets", {
   r <- hcr_effort(sys, assessed = c(setdiff(p$plan, p$plan_units$NEP), "NEP"), complexes = p$plan_units,
                   segments = p$plan_segments)
   own <- attr(r, "own")
-  expect_true(all(own[, c("gillnet", "LLS_18deep", "LLS_17E")] == FALSE))
-  expect_true("NEP" %in% rownames(own) || "NEP" %in% names(attr(r, "units")))
+  g <- match(c("gillnet", "LLS_18deep", "LLS_17E"), names(sys$segments))
+  expect_true(all(!own[, g]))
+  expect_true(any(own[, match("OTB", names(sys$segments))]))
+  expect_true("NEP" %in% names(attr(r, "units")))
 })

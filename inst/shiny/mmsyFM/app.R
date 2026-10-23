@@ -33,7 +33,7 @@ tips <- list(
   tune_min = "Target status of the weakest stock at open access (0.05 = the floor set by the F cap; Atlantic example 0.2). Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
   opt_obj = "What is maximised at equilibrium: <b>total yield</b> (total catch), <b>revenue</b> (catch x price), <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY), or the <b>catch of one stock</b> (e.g. anchovy). Every stock is still kept at or above Bpa.",
-  opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
+  opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.<br><b>Caps for the plan fleets</b>: caps only for the segments regulated by the management plan (e.g. Adriatic trawl and rapido); the others fish at capacity. Faster with many segments.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
   hs_btrig = "Below this B/Bmsy a segment's days are cut: full days at the trigger, a linear ramp down to the minimum effort at Blim (0.25 Bmsy). Default 0.5 Bmsy (the trigger at Bpa, as in ICES and GFCM advice).",
@@ -173,9 +173,9 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(width = 3,
         selectInput("opt_obj", info("opt_obj", "Objective"), c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit")),
-        radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments")),
+        radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments", "Caps for the plan fleets" = "plan")),
         p(class = "note", "The viability floor applies only to caps by segment: with one global cap the split across segments is fixed at the status-quo shares."),
-        conditionalPanel("input.opt_levers == 'segments'",
+        conditionalPanel("input.opt_levers != 'total'",
           sliderInput("opt_minshare", info("opt_minshare", "Viability floor (minimum share per segment)"), 0, 0.33, 0, 0.01)),
         numericInput("opt_bpa", info("opt_bpa", "Safeguard Bpa (B/Bmsy)"), 0.5, 0.1, 1, 0.05),
         uiOutput("opt_close"),
@@ -417,11 +417,14 @@ server <- function(input, output, session) {
   output$opt_close <- renderUI(checkboxGroupInput("opt_closed", info("opt_closed", "Closed metiers"), req(rv$sys)$metiers$name))
   opt <- eventReactive(input$run_opt, {
     sys <- rv$sys
-    lev <- if (input$opt_levers == "total") "total" else names(sys$segments)
+    ps <- ms_assessment_presets(sys)$plan_segments
+    if (input$opt_levers == "plan") validate(need(length(ps) > 0, "This system has no plan fleets (segment column 'plan')."))
+    lev <- switch(input$opt_levers, total = "total", segments = names(sys$segments), plan = ps)
+    fx <- if (identical(input$opt_levers, "plan")) cap()[setdiff(names(sys$segments), ps)] else NULL
     withProgress(message = "Optimising", value = 0.2,
-      ms_optimise(sys, input$opt_obj, levers = lev, upper = if (identical(lev, "total")) sum(cap()) else cap(),
+      ms_optimise(sys, input$opt_obj, levers = lev, fixed = fx, upper = if (identical(lev, "total")) sum(cap()) else cap()[lev],
                   ratio = rv$sq$E_seg / sum(rv$sq$E_seg),
-                  Bpa = input$opt_bpa, min_share = if (input$opt_levers == "segments") input$opt_minshare else 0, gamma = input$gamma, years = 150,
+                  Bpa = input$opt_bpa, min_share = if (input$opt_levers != "total") input$opt_minshare else 0, gamma = input$gamma, years = 150,
                   open = as.numeric(!sys$metiers$name %in% input$opt_closed)))
   })
   # objective choices: the totals and the catch of each stock of the loaded system
@@ -514,8 +517,8 @@ server <- function(input, output, session) {
     closed <- input$opt_closed
     mmsy_cache(list(key = ref_key(), caps = o$caps,
       open = as.numeric(!rv$sys$metiers$name %in% closed),
-      desc = paste0("tab 4 (", input$opt_obj, ", ", if (input$opt_levers == "total") "one global cap" else "caps by segment",
-                    if (input$opt_levers == "segments" && input$opt_minshare > 0) paste0(", floor ", input$opt_minshare) else "",
+      desc = paste0("tab 4 (", input$opt_obj, ", ", switch(input$opt_levers, total = "one global cap", segments = "caps by segment", plan = "caps for the plan fleets"),
+                    if (input$opt_levers != "total" && input$opt_minshare > 0) paste0(", floor ", input$opt_minshare) else "",
                     ", Bpa ", input$opt_bpa, ", closed: ", if (length(closed)) paste(closed, collapse = ", ") else "none", ")")))
   } })
   # the full (reference) effort of the MMSY-based rules: caps, open metiers and a description
@@ -523,8 +526,10 @@ server <- function(input, output, session) {
     m <- mmsy_cache()
     if (!is.null(m) && identical(m$key, ref_key())) return(m)
     o <- withProgress(message = "Computing the safeguarded MMSY effort (once)", value = 0.2,
-      ms_optimise(rv$sys, "yield", levers = names(rv$sys$segments), upper = cap(), Bpa = 0.5,
-                  gamma = input$gamma, years = 150, capacity = cap()))
+      { ps <- ms_assessment_presets(rv$sys)$plan_segments
+        lev <- if (length(ps)) ps else names(rv$sys$segments)        # plan fleets only, when defined
+        ms_optimise(rv$sys, "yield", levers = lev, fixed = if (length(ps)) cap()[setdiff(names(rv$sys$segments), ps)],
+                    upper = cap()[lev], Bpa = 0.5, gamma = input$gamma, years = 150, capacity = cap()) })
     validate(need(isTRUE(o$feasible), "No safeguarded MMSY solution: every stock cannot be kept above Bpa."))
     m <- list(key = ref_key(), caps = o$caps, open = rep(1, rv$sys$M),
               desc = "defaults (yield, caps by segment, Bpa 0.5, no floor, no closures)")
