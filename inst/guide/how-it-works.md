@@ -229,9 +229,15 @@ keep the safeguard.
 * `complexes`: stocks assessed as a pooled group (e.g. "reef fish"), from
   pooled biomass or a pooled catch rate. Pooling can hide a weak member.
 
-**Seasonal closures.** The `open` argument of `ms_simulate()` can be a
-12 x metier matrix (open share by month), e.g. closing the trawl grounds
-from 15 February to 15 May.
+**Metier closures.** Management can also close one or more metiers
+outright, all year or for some months, and for all or part of their ground
+(an area closure), independently of stock status: `ms_closure(sys,
+c("TR_inner", "TR_mid"), months = 2:5)` gives the open share by month and
+metier, passed as `open` to `ms_simulate()`. Displaced days move to the open
+metiers by expected profit. In practice this is often more realistic than a
+closure triggered by one species' assessment. The app compares "metier
+closures only" (otherwise uncontrolled fleet) and "HCR + metier closures"
+with the other rules.
 
 **Tuning triggers (`ms_tune_hcr()`).** Runs a grid of effort (and closure)
 triggers with common random numbers (every trigger sees the same random

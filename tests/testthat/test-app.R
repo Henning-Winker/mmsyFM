@@ -47,6 +47,9 @@ test_that("the app compares several rules, with full effort from the safeguarded
     expect_equal(names(r), c("No control", "Fixed MMSY effort", "HCR value-weighted", "HCR weakest link"))
     expect_true(all(vapply(r, function(x) dim(x$B)[1], 0) == 10))
     expect_s3_class(perf(), "data.table")
+    session$setInputs(hs_rules = c("none", "mclose_only", "mclose_hcr"), hs_mclose = rv$sys$metiers$name[1],
+                      hs_mclose_months = c(2, 5), hs_mclose_share = 1, run_hs = 2)
+    expect_equal(names(hs()), c("No control", "Metier closures only", "HCR + metier closures"))
     expect_type(output$hs_perf, "character")
   })
 })

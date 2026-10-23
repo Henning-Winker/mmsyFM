@@ -45,6 +45,9 @@ tips <- list(
   hs_qstat = "Statistic shown for every stock (rows) and rule (columns). Colours rank the rules within each stock, or use the risk limit for probabilities of being below Bpa or Blim.",
   hs_qrisk = "For P(B < Bpa) and P(B < Blim): green at or below this limit, amber up to twice the limit, red above.",
   hs_bstock = "Stocks shown in the lower boxplots (one row per stock). Default: the three most depleted at the status quo.",
+  hs_mclose = "Metiers closed by management (fixed, not triggered by stock status), used by the rules 'Metier closures only' and 'HCR + metier closures'. Their days move to the open metiers by expected profit.",
+  hs_mclose_months = "Months of the closure (1 = January). The full range is a year-round closure; e.g. 2 to 5 closes February to May.",
+  hs_mclose_share = "Share of each closed metier's ground closed in those months: 1 = fully closed, 0.5 = half of the ground (an area closure).",
   hs_maxchange = "Largest change in a segment's days from one year to the next, relative to last year (0.2 = at most 20% up or down), as for TAC changes: a cut from the status quo to the 10% floor takes about 10 years. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
@@ -175,10 +178,15 @@ ui <- navbarPage(
         checkboxGroupInput("hs_rules", info("hs_rules", "Rules to compare"),
           c("No control (status-quo days)" = "none", "Fixed MMSY effort" = "mmsy",
             "HCR, value-weighted (full = MMSY)" = "hcr_w", "HCR, weakest link (full = MMSY)" = "hcr_min",
-            "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure (full = MMSY)" = "hcr_close"),
+            "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure for a stock (full = MMSY)" = "hcr_close",
+            "Metier closures only" = "mclose_only", "HCR + metier closures (full = MMSY)" = "mclose_hcr"),
           c("none", "mmsy", "hcr_w", "hcr_min")),
         p(class = "note", "Full effort = the safeguarded-MMSY days from tab 4, with its settings and closures (computed here with defaults if tab 4 has not been run: 1-3 min)."),
         uiOutput("hs_ref"),
+        h5("Metier closures"),
+        uiOutput("hs_mclose_ui"),
+        sliderInput("hs_mclose_months", info("hs_mclose_months", "Closed months"), 1, 12, c(1, 12), 1),
+        sliderInput("hs_mclose_share", info("hs_mclose_share", "Share of the ground closed"), 0.1, 1, 1, 0.05),
         h5("Rule"),
         sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.5, 0.05),
         checkboxInput("hs_trig_seg", info("hs_trig_seg", "Triggers by segment"), FALSE),
@@ -408,6 +416,12 @@ server <- function(input, output, session) {
     g <- names(rv$sys$segments)
     setNames(vapply(g, function(x) input[[paste0("trig_", x)]] %||% input$hs_btrig, 0), g)
   })
+  output$hs_mclose_ui <- renderUI(checkboxGroupInput("hs_mclose", info("hs_mclose", "Metiers to close"),
+    req(rv$sys)$metiers$name, inline = TRUE))
+  mclose_open <- function() {
+    validate(need(length(input$hs_mclose) > 0, "Tick at least one metier to close for the metier-closure rules."))
+    ms_closure(rv$sys, input$hs_mclose, seq(input$hs_mclose_months[1], input$hs_mclose_months[2]), input$hs_mclose_share)
+  }
   rule_args <- reactive(list(Btrig = btrig(), Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess, own_q = if (isTRUE(input$hs_bycatch)) 0.2 else 0.5,
@@ -449,7 +463,8 @@ server <- function(input, output, session) {
     sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
     validate(need(length(sel) > 0, "Tick at least one rule."))
     B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
-    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close") %in% sel)) mmsy_ref()
+    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr") %in% sel)) mmsy_ref()
+    opc <- if (any(c("mclose_only", "mclose_hcr") %in% sel)) mclose_open()
     Em <- if (!is.null(ref)) matrix(ref$caps, n, sys$G, byrow = TRUE)
     run <- function(caps, hcr = NULL, open = 1) do.call(ms_simulate, c(list(sys, caps, input$hs_years, B_init = B0,
       E_init = E0, hcr = hcr, open = open, seed = 1, keep = "all"), sim_args()))
@@ -457,7 +472,8 @@ server <- function(input, output, session) {
     rule <- function(...) do.call(hcr_effort, c(list(sys), utils::modifyList(ra, list(...))))
     labs <- c(none = "No control", mmsy = "Fixed MMSY effort", hcr_w = "HCR value-weighted",
               hcr_min = "HCR weakest link", hcr_sq = "HCR value-weighted, full = status quo",
-              hcr_close = "HCR + closure")
+              hcr_close = "HCR + stock closure", mclose_only = "Metier closures only",
+              mclose_hcr = "HCR + metier closures")
     out <- list()
     withProgress(message = "Simulating", value = 0, {
       for (k in sel) {
@@ -469,7 +485,9 @@ server <- function(input, output, session) {
           hcr_min = run(Em, rule(aggregate = "min"), open = ref$open),
           hcr_sq = run(E0, rule(aggregate = "weighted")),
           hcr_close = { validate(need(input$hs_close_s != "none", "Choose a closure stock for 'HCR + closure'."))
-                        run(Em, rule(aggregate = "weighted", close = input$hs_close_s), open = ref$open) })
+                        run(Em, rule(aggregate = "weighted", close = input$hs_close_s), open = ref$open) },
+          mclose_only = run(matrix(cap(), n, sys$G, byrow = TRUE), open = opc),
+          mclose_hcr = run(Em, rule(aggregate = "weighted"), open = opc * matrix(ref$open, 12, sys$M, byrow = TRUE)))
       }
     })
     out

@@ -314,3 +314,33 @@ ffmsy <- function(F, r, h = FALSE) {
   hr <- if (h) F else 1 - exp(-F)
   if (is.null(dim(hr))) hr / (r / 2) else sweep(hr, length(dim(hr)), r / 2, "/")
 }
+
+#' Fixed metier closures
+#'
+#' Builds the open share of each metier by month (a 12 x metier matrix) for
+#' closures of one or more metiers, all year or for some months, and of all
+#' or part of their ground. Pass it as `open` to [ms_simulate()] (or multiply
+#' it with another open matrix). Displaced days move to the open metiers by
+#' expected profit.
+#'
+#' @param sys an `ms_system`.
+#' @param metiers names of the metiers to close.
+#' @param months months closed (1-12; default all year), e.g. `2:5` for
+#'   February to May.
+#' @param share share of each metier closed in those months (1 = fully; 0.5
+#'   = half its ground, as for an area closure).
+#' @return A 12 x metier matrix of open shares (1 = open).
+#' @export
+#' @examples
+#' sys <- got_system_draft()
+#' op <- ms_closure(sys, c("TR_inner", "TR_mid"), months = 2:5)   # trawl closed Feb-May
+#' op[1:6, c("TR_inner", "TR_mid", "TR_outer")]
+ms_closure <- function(sys, metiers, months = 1:12, share = 1) {
+  met <- sys$metiers$name
+  if (!all(metiers %in% met)) stop("unknown metier(s): ", paste(setdiff(metiers, met), collapse = ", "), call. = FALSE)
+  if (any(!months %in% 1:12)) stop("`months` must be in 1:12", call. = FALSE)
+  if (share < 0 || share > 1) stop("`share` must be between 0 and 1", call. = FALSE)
+  op <- matrix(1, 12, length(met), dimnames = list(month.abb, met))
+  op[months, metiers] <- 1 - share
+  op
+}
