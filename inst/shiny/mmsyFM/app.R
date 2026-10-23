@@ -32,7 +32,7 @@ tips <- list(
   gamma = "0 = days spread evenly over the metiers, whatever they pay. Higher = days concentrate on the metiers with the best expected profit per day.",
   tune_min = "Target status of the weakest stock at open access (0.05 = the floor set by the F cap; Atlantic example 0.2). Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
-  opt_obj = "What is maximised at equilibrium: <b>yield</b> (total catch), <b>revenue</b> (catch x price) or <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY).",
+  opt_obj = "What is maximised at equilibrium: <b>total yield</b> (total catch), <b>revenue</b> (catch x price), <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY), or the <b>catch of one stock</b> (e.g. anchovy). Every stock is still kept at or above Bpa.",
   opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
@@ -157,7 +157,7 @@ ui <- navbarPage(
   tabPanel("4. Safeguarded MMSY",
     sidebarLayout(
       sidebarPanel(width = 3,
-        selectInput("opt_obj", info("opt_obj", "Objective"), c("yield", "revenue", "profit")),
+        selectInput("opt_obj", info("opt_obj", "Objective"), c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit")),
         radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments")),
         p(class = "note", "The viability floor applies only to caps by segment: with one global cap the split across segments is fixed at the status-quo shares."),
         conditionalPanel("input.opt_levers == 'segments'",
@@ -382,9 +382,16 @@ server <- function(input, output, session) {
                   Bpa = input$opt_bpa, min_share = if (input$opt_levers == "segments") input$opt_minshare else 0, gamma = input$gamma, years = 150,
                   open = as.numeric(!sys$metiers$name %in% input$opt_closed)))
   })
+  # objective choices: the totals and the catch of each stock of the loaded system
+  observe({ sys <- rv$sys; req(sys)
+    updateSelectInput(session, "opt_obj", choices = c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit",
+      setNames(sys$code, paste("Catch:", sys$species))), selected = isolate(input$opt_obj) %||% "yield") })
   output$opt_summary <- renderTable({
     o <- opt(); validate(need(isTRUE(o$feasible), paste0("No safeguarded optimum: ", o$reason %||% "no feasible caps", ".")))
-    rbind(summary_table(rv$sq, "Status quo"), cbind(summary_table(o, "Safeguarded optimum")))
+    tab <- rbind(summary_table(rv$sq, "Status quo"), summary_table(o, "Safeguarded optimum"))
+    for (k in match(o$objective_stocks, rv$sys$code))
+      tab[[paste("Catch of", rv$sys$species[k])]] <- fmt(c(attr(rv$sq$summary, "catch")[1, k], o$catch[[k]]))
+    tab
   }, striped = TRUE)
   output$opt_kobe <- renderPlot({ o <- opt(); req(isTRUE(o$feasible))
     plot_kobe(list("Status quo" = rv$sq, "Safeguarded optimum" = o), rv$sys) }, res = 110)
