@@ -1,0 +1,13 @@
+"metier","tactic","ground","cost"
+"OTB_17NW","Bottom otter trawl - western GSA 17 (ITA SVN)","17NW",0.619190764380696
+"OTB_17NE","Bottom otter trawl - eastern GSA 17 (HRV)","17NE",0.193052170730415
+"OTB_Pomo","Bottom otter trawl - Jabuka/Pomo Pits outside the FRA core (ITA HRV)","Pomo",2.31320267624091
+"OTB_18shelf","Bottom otter trawl - GSA 18 shelf (ITA ALB MNE)","18shelf",0.288390640546805
+"OTB_18slope","Bottom otter trawl - GSA 18 upper slope of the South Adriatic Pit (ITA ALB)","18slope",1.39604548016742
+"TBB_17","Beam trawl rapido - sole (ITA)","17NW;17NE",1.70837801104476
+"GTR_17NW","Trammel nets gillnets pots and fykes - western GSA 17 (ITA)","17NW",2.60138488200268
+"GNS_17NE","Gillnets and trammel nets - eastern GSA 17 (HRV)","17NE",0.00161049202036012
+"FPO_17NE","Creels - Norway lobster (HRV)","17NE",0.270105126587152
+"GNS_18","Gillnets and trammel nets - GSA 18 (ITA MNE ALB)","18shelf",0.235044974878897
+"LLS_18deep","Bottom longline - GSA 18 deep (ITA)","18slope",0.070742416555338
+"LLS_17E","Bottom longline - eastern GSA 17 (HRV)","17NE",0.0726090974902282

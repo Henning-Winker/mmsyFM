@@ -21,6 +21,7 @@ hcr_effort(
   complexes = NULL,
   complex_index = c("biomass", "cpue"),
   aggregate = c("weighted", "min"),
+  segments = NULL,
   seed = 1
 )
 }
@@ -65,6 +66,10 @@ each unit's potential revenue for the segment (catchability on its
 metiers x price x K), so the stocks that make up its fishery drive its
 effort; or \code{"min"}, the weakest link (the most depleted unit sets the
 segment's effort), a special, most precautionary case.}
+
+\item{segments}{the segments the rule regulates (default all); the
+others keep their reference days (e.g. fleets outside a management
+plan's effort regime).}
 
 \item{seed}{seed of the rule's own random stream (assessment errors), kept
 apart from the simulation's, so rules compared with the same simulation

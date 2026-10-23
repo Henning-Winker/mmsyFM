@@ -1,0 +1,6 @@
+"segment","share_target","loyalty","efficiency","efficiency_away","cost_multiplier","vessel_cv","capacity","plan","home"
+"OTB",0.547445255474453,1,1,1,1,0.25,150000,1,"OTB_17NW;OTB_17NE;OTB_Pomo;OTB_18shelf;OTB_18slope"
+"TBB_sole",0.0255474452554745,1,1,1,1,0.25,7000,1,"TBB_17"
+"gillnet",0.262773722627737,1,1,1,0.15,0.25,72000,0,"GTR_17NW;GNS_17NE;FPO_17NE;GNS_18"
+"LLS_18deep",0.072992700729927,1,1,1,0.2,0.25,20000,0,"LLS_18deep"
+"LLS_17E",0.0912408759124088,1,1,1,0.2,0.25,25000,0,"LLS_17E"

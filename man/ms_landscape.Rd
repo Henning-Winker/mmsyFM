@@ -4,7 +4,14 @@
 \alias{ms_landscape}
 \title{Catchability from a habitat landscape}
 \usage{
-ms_landscape(cells, species, metiers, selectivity, q0 = 0.001)
+ms_landscape(
+  cells,
+  species,
+  metiers,
+  selectivity,
+  q0 = 0.001,
+  distribution = NULL
+)
 }
 \arguments{
 \item{cells}{data frame with \code{depth}, \code{substrate} and \code{area} (any units).}
@@ -21,6 +28,12 @@ dimnames) or a data frame with a \code{metier} column and one column per
 stock. Values 0-1.}
 
 \item{q0}{catchability at average density and selectivity 1.}
+
+\item{distribution}{optional: each stock's share of its biomass in each
+cell (cells x stocks, columns named by stock), e.g. from species
+distribution models or survey hot spots. It replaces the depth and
+substrate preferences of \code{species} (which then only needs the column
+\code{species}); columns are normalised to sum to 1.}
 }
 \value{
 A catchability matrix (metiers x stocks) with attributes

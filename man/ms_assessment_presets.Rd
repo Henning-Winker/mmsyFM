@@ -13,7 +13,8 @@ ms_assessment_presets(sys, own_q = 0.5)
 }
 \value{
 A list with \code{indicators} (stock names), \code{complexes} (named list of
-stock names) and \code{assign} (named list segment -> stock names).
+stock names), \code{assign} (named list segment -> stock names), and
+\code{plan}, \code{plan_units} and \code{plan_segments}.
 }
 \description{
 Starting points for the \code{assessed}, \code{complexes} and \code{assign} arguments of
@@ -26,6 +27,11 @@ potential value to that segment (catchability on its metiers x price x
 K) among the stocks it catches as a main fishery, without repeats;
 \item \code{complexes}: the species \code{group}s of the system with two or more
 stocks (stocks alone in their group stay single units);
+\item \code{plan}: the key stocks of the management plan (species column \code{plan}),
+\code{plan_units} the management units with more than one stock (species
+column \code{unit}, e.g. the Norway lobster functional units as one stock)
+and \code{plan_segments} the segments regulated by the plan (segment column
+\code{plan}); \code{NULL} when the system does not define them;
 \item \code{assign}: each stock assigned to the segment for whose fishery it
 matters most (its largest share of the segment's potential value), its
 "main" fleet.
