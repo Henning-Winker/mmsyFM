@@ -1,8 +1,8 @@
 ---
-title: "Getting started with mmsyFM"
+title: "Step by step: using mmsyFM"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Getting started with mmsyFM}
+  %\VignetteIndexEntry{Step by step: using mmsyFM}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,111 +11,254 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 9, fig.height = 4.5, dpi = 90)
 ```
 
-`mmsyFM` simulates mixed fisheries in which fleet segments choose where to
-fish by expected profit. This vignette walks through the Atlantic example:
-the system, its status quo, equilibrium yield curves, the safeguarded
-multispecies MSY, and a feedback harvest strategy.
+This vignette walks through a complete analysis with the package functions,
+from loading a system to comparing harvest strategies with performance
+statistics and plots. It uses the Atlantic example, which runs quickly; the
+same calls work for the Gulf of Thailand draft (`got_system_draft()`) or for
+your own tables. How the two example systems were built is described in
+`vignette("scenario-setup")`, the model in `vignette("how-it-works")` and
+the management options in `vignette("management-options")`.
+
+| Step | Functions |
+|---|---|
+| 1. Load and inspect a system | `atlantic_system()`, `got_system_draft()`, `read_ms_system()`, `plot_catchability()` |
+| 2. Status quo | `ms_status_quo()`, `plot_kobe()` |
+| 3. Equilibrium scenarios | `ms_simulate()`, `ms_summary()`, `ms_closure()` |
+| 4. Yield curves | `ms_yield_curve()`, `ms_shared_q_curve()`, `plot_yield_curves()` |
+| 5. Safeguarded MMSY | `ms_optimise()` |
+| 6. Harvest strategies | `hcr_effort()`, `ms_simulate()` |
+| 7. Performance statistics | `ms_perf()`, `ms_perf_table()`, `plot_bps()`, `plot_tradeoffs()`, `plot_quilt()` |
+| 8. Projections | `plot_projection()`, `plot_fleet()` |
+| 9. Tuning triggers | `ms_tune_hcr()` |
+| 10. The app | `run_app()` |
 
 ```{r}
 library(mmsyFM)
+```
+
+## 1. Load and inspect a system
+
+A system holds the stocks, metiers (a fishing tactic on a ground), their
+catchability, and the fleet segments.
+
+```{r}
 sys <- atlantic_system()
 sys
 ```
 
-## The system
+The catchability matrix decides who catches what: each column is scaled to
+the stock's highest catchability.
 
-Ten stocks are caught in six métiers (tactic × ground). The catchability
-matrix decides who catches what:
-
-```{r, fig.height = 3.5}
+```{r, fig.height = 3.6}
 plot_catchability(sys)
 ```
 
-Three segments share the fleet:
+Your own system is read from four CSV tables with
+`read_ms_system(folder, prefix)` (see `?ms_system`).
 
-* demersal and pelagic specialists with loyalty 0.8 to their home métiers;
-* a mixed generalist that chooses freely, at 0.75 efficiency.
+## 2. The status quo
 
-Each segment allocates its days with probability proportional to expected
-profit^γ, and fishes only the days of its vessels that break even.
-
-## Status quo
-
-The daily costs were tuned with `ms_tune()` so that open access gives
-35/35/30% of the days and the weakest stock at 0.4 Bmsy:
+The status quo is the open-access equilibrium: each segment fishes the days
+of its vessels that break even, up to its capacity. `gamma` is the strength
+of the profit preference (how strongly fishers chase the most profitable
+metiers).
 
 ```{r}
 sq <- ms_status_quo(sys, capacity = 1000, gamma = 1.5, years = 300)
-round(sq$E_seg)
-round(sq$BBmsy, 2)
+round(sq$E_seg)                       # days by segment
+round(sq$BBmsy, 2)                    # stock status
+sq$summary[, c("yield", "revenue", "profit")]
 ```
 
-## Equilibrium yield curves
+The Kobe plot shows the stocks on the harvest-rule zones (Blim 0.25, Bpa 0.5,
+trigger 0.8 Bmsy, minimum F 0.1). In equilibrium every stock lies on the
+line B/Bmsy + F/Fmsy = 2.
 
-The same system gives very different yield curves depending on how
-behaviour is treated:
+```{r, fig.width = 7, fig.height = 5}
+plot_kobe(list("Status quo" = sq), sys)
+```
+
+## 3. Equilibrium scenarios
+
+`ms_simulate()` runs any number of scenarios (rows of `caps`, days by
+segment) in one call; `ms_summary()` gives the equilibrium yield, profit and
+status. Here: the status quo, the demersal fleet halved, and the shallow reef
+closed from January to June with `ms_closure()`.
 
 ```{r}
-mult <- c(0, 10^seq(-1.5, log10(6), length.out = 30))
-no_reef <- replace(rep(1, sys$M), sys$metiers$name == "Reef_shallow", 0)
+caps <- rbind(sq$E_seg, sq$E_seg * c(0.5, 1, 1))
+x <- ms_simulate(sys, caps, years = 200, capacity = caps, gamma = 1.5)
+s <- ms_summary(x)
+cbind(scenario = c("status quo", "demersal halved"), s[, c("yield", "profit", "min_BBmsy")])
+
+reef <- ms_closure(sys, "Reef_shallow", months = 1:6)
+y <- ms_simulate(sys, matrix(sq$E_seg, 1), years = 200, capacity = matrix(sq$E_seg, 1),
+                 gamma = 1.5, open = reef)
+round(attr(ms_summary(y), "BBmsy")[1, ], 2)
+```
+
+## 4. Yield curves
+
+Scaling the status-quo days up and down shows equilibrium yield over effort.
+Comparing treatments shows what fleet behaviour changes:
+
+```{r}
+mult <- c(0, 10^seq(-1.5, log10(4), length.out = 25))
+no_reef <- as.numeric(sys$metiers$name != "Reef_shallow")
 curves <- list(
   "Shared q" = ms_shared_q_curve(sys, sq),
-  "Profit-seeking (gamma 1.5)" = ms_yield_curve(sys, sq$E_seg, mult, years = 200, gamma = 1.5),
-  "Profit-seeking + reef closed" = ms_yield_curve(sys, sq$E_seg, mult, years = 200, gamma = 1.5, open = no_reef))
+  "Profit-seeking" = ms_yield_curve(sys, sq$E_seg, mult, years = 150, gamma = 1.5),
+  "Profit-seeking, reef closed" = ms_yield_curve(sys, sq$E_seg, mult, years = 150, gamma = 1.5, open = no_reef))
 plot_yield_curves(curves, ref = sq, sys = sys)
 ```
 
-* **Shared q gives a dome.** All stocks are fine at MMSY and collapse together beyond it.
-* **Profit-seeking fishers turn it into a plateau.** Yield hardly reacts to effort while Dentex erodes underneath.
-* **Closing the shallow reef** makes MMSY and the safeguarded yield coincide.
+* **Shared q** (one effort pool, fixed catchability) gives the classic dome.
+* **Profit-seeking fleets** flatten it: effort leaves depleted stocks, but the
+  choke stock (Dentex, on the shallow reef) erodes underneath.
+* **Closing the shallow reef** protects the choke stock directly.
 
-## Safeguarded MMSY
+## 5. Safeguarded MMSY
 
-`ms_optimise()` maximises equilibrium yield, revenue or profit subject to
-every stock staying at or above Bpa = 0.5 Bmsy:
+`ms_optimise()` finds the effort caps that maximise equilibrium yield (or
+revenue, profit, or the catch of one stock) with every stock at or above
+Bpa = 0.5 Bmsy. With caps by segment, cuts can target the fleet that drives
+the choke stock.
 
 ```{r}
-opt <- ms_optimise(sys, "yield", levers = "total", upper = 3000, gamma = 1.5, years = 120)
-round(opt$E_seg)
-c(yield = round(opt$summary$yield), binding = opt$binding)
+opt <- ms_optimise(sys, "yield", levers = names(sys$segments), upper = 1000,
+                   gamma = 1.5, years = 100, n = 7, zoom = 3)   # coarse grid for speed
+round(opt$caps)                       # days by segment
+c(yield = round(opt$summary$yield), status_quo = round(sq$summary$yield))
+opt$binding                           # the choke stock(s)
+```
+
+The objective can also be a single stock, e.g. the albacore catch:
+
+```{r, eval = FALSE}
+ms_optimise(sys, "ALB", levers = names(sys$segments), upper = 1000, gamma = 1.5)
+```
+
+```{r, fig.height = 5}
 plot_kobe(list("Status quo" = sq, "Safeguarded MMSY" = opt), sys)
 ```
 
-## A feedback harvest strategy
+## 6. Harvest strategies
 
-Each segment's days are scaled by a hockey-stick rule. It responds to the
-most depleted stock the segment catches, as assessed with error (CV 0.2) and
-a 2-year lag. The shallow reef closes progressively as Dentex declines.
-Process error follows JABBA's `proc.dyn` and scales with r.
+`hcr_effort()` builds a feedback rule: every year each segment's days are a
+fraction of its full effort (here the safeguarded-MMSY days), from the
+assessed status of the stocks it fishes (with error and a 2-year data lag):
+full effort above the trigger (0.5 Bmsy), down to a minimum effort (10%) at
+Blim, changing by at most 20% a year. Rules run in closed loop with
+`ms_simulate(hcr = )`, here with process error (scaled by r and depletion as
+in JABBA), implementation error and effort noise, and the same random draws
+for every rule.
 
 ```{r}
-n <- 100
-B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
-run <- function(caps, hcr = NULL) ms_simulate(sys, caps, 40, gamma = 1.5, B_init = B0, E_init = E0,
-  capacity = 1000, hcr = hcr, proc_sd = proc_sd_from_r(sys$r), proc_dep = "jabba",
-  proc_center = "median", rho = 0.3, impl_cv = 0.1, effort_cv = 0.1, seed = 1, keep = "all")
+n <- 60
+B0 <- matrix(sq$B, n, sys$S, byrow = TRUE)
+E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
+Em <- matrix(opt$caps, n, sys$G, byrow = TRUE)
+run <- function(caps, hcr = NULL, open = 1)
+  ms_simulate(sys, caps, 40, gamma = 1.5, B_init = B0, E_init = E0, capacity = 1000, hcr = hcr,
+              open = open, proc_sd = proc_sd_from_r(sys$r), proc_dep = "jabba", proc_center = "median",
+              rho = 0.3, impl_cv = 0.1, effort_cv = 0.1, seed = 1, keep = "all")
+rule <- function(...) hcr_effort(sys, max_change = 0.2, ...)
 runs <- list(
-  "No control" = run(matrix(1000, n, sys$G)),
-  "Effort rule + reef closure" = run(E0, hcr_effort(sys, Btrig = 0.6, Btrig_close = 3, close = "Dentex dentex")))
-ms_performance(runs, years = 21:40)[, c("run", "yield", "profit", "P_any_below_Blim", "worst_P_below_Bpa", "worst_stock")]
-plot_projection(runs, "BBmsy")
-plot_fleet(runs)
+  "No control"           = run(matrix(1000, n, sys$G)),
+  "Fixed MMSY effort"    = run(Em),
+  "HCR value-weighted"   = run(Em, rule()),
+  "HCR weakest link"     = run(Em, rule(aggregate = "min")),
+  "HCR + reef closure"   = run(Em, rule(), open = ms_closure(sys, "Reef_shallow", months = 1:6)))
 ```
 
-`ms_tune_hcr()` tunes the triggers to a risk limit. It runs a grid of
-triggers with common random numbers and keeps the highest-yield rule with
-every stock below Bpa at most 5% of the time:
+Other options of `hcr_effort()`: triggers by segment (`Btrig = c(pelagic =
+0.8)`), a closure triggered by a stock (`close = "Dentex dentex"`), indicator
+species (`assessed`), species complexes (`complexes`) and the nominal
+assignment of stocks to fleets (`assign`).
+
+## 7. Performance statistics
+
+`ms_perf()` computes statistics per iteration over the evaluation years, by
+stock, by segment and for the whole system, as a long `data.table` in the
+format of the FLR package mseviz (so it can also be passed to
+`mseviz::plotBPs()` or `mseviz::perfTable()`).
+
+```{r}
+pf <- ms_perf(runs, years = 21:40)
+head(pf)
+```
+
+The statistics (`ms_statistics()`):
+
+```{r, echo = FALSE}
+knitr::kable(ms_statistics()[, c("statistic", "desc", "type")])
+```
+
+A summary table (medians with 10th-90th percentiles; means for
+probabilities):
+
+```{r}
+ms_perf_table(pf, c("C", "Profit", "Days", "NBpa", "PanyBlim", "AAVC"))
+```
+
+Boxplots by rule, for the system and for selected stocks (targets in green,
+limits in red):
+
+```{r, fig.height = 5.5}
+plot_bps(pf, c("C", "Profit", "Days", "AAVC", "NBpa", "PanyBlim"))
+```
+
+```{r, fig.height = 6}
+plot_bps(pf, c("BBmsy", "FFmsy", "CMSY", "PBlim", "PB80"), biol = c("DEC", "SBR", "AMB"))
+```
+
+Trade-offs between catch and the other statistics:
+
+```{r, fig.height = 5.5}
+plot_tradeoffs(pf, x = "C", y = c("Profit", "NBpa", "PanyBlim", "AAVC"))
+```
+
+Colour-coded decision tables: rules x statistics (green = best, red = worst
+in each column), and stocks x rules for one statistic with risk classes:
+
+```{r, fig.height = 3}
+plot_quilt(pf, c("C", "Rev", "Profit", "Days", "AAVC", "NBpa", "PanyBlim", "minBBmsy"))
+```
+
+```{r, fig.height = 4.5, fig.width = 8}
+plot_quilt(pf, layout = "stocks", statistic = "PBpa", risk = 0.1)
+```
+
+## 8. Projections
+
+```{r, fig.height = 6}
+plot_projection(runs[c("No control", "HCR value-weighted", "HCR weakest link")], "BBmsy")
+```
+
+```{r, fig.height = 3.5}
+plot_fleet(runs[c("No control", "Fixed MMSY effort", "HCR value-weighted", "HCR weakest link")])
+```
+
+All runs start from the same year-0 state (the status quo); the rules phase
+in their cuts at most 20% a year.
+
+## 9. Tuning triggers
+
+`ms_tune_hcr()` runs a grid of triggers with common random numbers and keeps
+the highest-yield trigger whose risk meets a limit (by default: the worst
+stock below Bpa at most 5% of the time):
 
 ```{r, eval = FALSE}
-tu <- ms_tune_hcr(sys, triggers = seq(0.4, 1, 0.1), close = "Dentex dentex",
-                  close_triggers = c(1, 1.5, 2, 3, 5), E_ref = sq$E_seg, B_init = sq$B,
-                  gamma = 1.5, capacity = 1000, proc_sd = proc_sd_from_r(sys$r),
-                  proc_dep = "jabba", proc_center = "median", impl_cv = 0.1)
+tu <- ms_tune_hcr(sys, triggers = seq(0.3, 1, 0.1), E_ref = opt$caps, E_init = sq$E_seg,
+                  B_init = sq$B, max_change = 0.2, gamma = 1.5, capacity = 1000,
+                  proc_sd = proc_sd_from_r(sys$r), proc_dep = "jabba", proc_center = "median")
 tu$best
 ```
 
-`hcr_effort()` can also emulate:
+## 10. The app
 
-* management based on a subset of assessed stocks (`assessed`);
-* species complexes with pooled indices (`complexes`);
-* the nominal assignment of stocks to fleets (`assign`).
+All of these steps are available interactively:
+
+```{r, eval = FALSE}
+run_app()
+```

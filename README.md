@@ -4,7 +4,7 @@
 [![R-CMD-check](https://github.com/Henning-Winker/mmsyFM/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Henning-Winker/mmsyFM/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-**Multispecies MSY fleet model.** Simulates mixed fisheries in which fleet segments allocate their fishing days across métiers by expected profit. It finds safeguarded multispecies MSY, and tunes and tests effort- and closure-based harvest strategies under uncertainty. A Shiny app for participatory workshops is in development (branch `dev-shiny`).
+**Multispecies MSY fleet model.** Simulates mixed fisheries in which fleet segments allocate their fishing days across métiers by expected profit. It finds safeguarded multispecies MSY, and tunes and tests effort- and closure-based harvest strategies under uncertainty, with a Shiny app for participatory workshops. Documentation: <https://henning-winker.github.io/mmsyFM/>.
 
 `mmsyFM` grew out of the logbook simulator of [cpueTargeting](https://github.com/Henning-Winker/cpueTargeting) and extends the shared-q model of the multispecies MSY app [mmsyapp](https://maitepons.shinyapps.io/mmsyapp/) (see *Authors and origins*). In a shared-q model every effort rule moves along one line, because F_i / F_j = q_i / q_j is fixed. Here fishers choose where to fish.
 
@@ -25,7 +25,12 @@ opt <- ms_optimise(sys, "yield", levers = "total", gamma = 1.5)  # MMSY with eve
 plot_kobe(list("Status quo" = sq, "Safeguarded MMSY" = opt), sys)
 ```
 
-See `vignette("mmsyFM")` for yield curves and feedback harvest strategies.
+Articles:
+
+* `vignette("mmsyFM")`: step by step through the functions, from the status quo to harvest strategies, performance statistics and plots;
+* `vignette("scenario-setup")`: how the Atlantic and Gulf of Thailand systems were built and tuned, with a checklist for your own system;
+* `vignette("how-it-works")`: the model, with equations and algorithms;
+* `vignette("management-options")`: the management options in a real-world context.
 
 ## Shiny app
 
@@ -33,14 +38,15 @@ See `vignette("mmsyFM")` for yield curves and feedback harvest strategies.
 mmsyFM::run_app()
 ```
 
-The app has six tabs:
+The app's tabs:
 
-1. **Set-up:** system, status quo, tuning of the daily costs.
-2. **Equilibrium explorer:** days by segment, closures.
-3. **Yield curves:** conceptual treatments compared.
-4. **Safeguarded MMSY.**
-5. **Harvest strategy:** rule, uncertainty, projections.
-6. **Trigger tuning.**
+1. **Set-up:** the Atlantic example, the Gulf of Thailand draft or uploaded tables; capacity, profit preference, tuning of the daily costs.
+2. **Equilibrium:** days by segment and open metiers.
+3. **Yield curves:** shared q, profit-blind and profit-seeking fleets, closures.
+4. **Safeguarded MMSY:** total yield, revenue, profit or the catch of one stock, with every stock at or above Bpa.
+5. **Harvest strategy:** compare rules (no control, fixed MMSY effort, feedback rules, stock and metier closures) under uncertainty, with tables, projections, boxplots, trade-offs and decision tables.
+6. **Tune triggers.**
+7. **Management options** and **Guide:** the options in a real-world context, and the model with its equations.
 
 ## Model
 

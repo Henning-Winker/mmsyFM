@@ -1,0 +1,14 @@
+---
+title: "Management options"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Management options}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The same text is the **Management options** tab of the app (`run_app()`).
+The functions behind each option are shown in `vignette("mmsyFM")`.
+
+```{r, child = "../inst/guide/management-options.md"}
+```
