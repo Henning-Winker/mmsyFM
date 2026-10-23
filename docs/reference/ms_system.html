@@ -25,7 +25,7 @@ all other functions use."><!-- mathjax --><script src="file:///usr/share/javascr
 <li class="nav-item dropdown">
   <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
   <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic and Gulf of Thailand</a>
+    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic</a>
     <div class="dropdown-divider"></div>
     <a class="dropdown-item" href="../articles/index.html">More articles...</a>
   </div>
@@ -82,8 +82,14 @@ all other functions use.</p>
 <code>r</code>, <code>K</code> and <code>price</code>; optional <code>code</code> (short label), <code>group</code>,
 <code>season_amp</code> (0 = resident, 1 = absent at the low point),
 <code>season_peak</code> (month of highest availability), <code>F_cap</code> (cap on
-realised F in units of Fmsy, see <code><a href="ms_simulate.html">ms_simulate()</a></code>) and <code>dep_init</code>
-(starting B/K of simulations, default 1; set by <code><a href="ms_condition.html">ms_condition()</a></code>).</p></dd>
+realised F in units of Fmsy, see <code><a href="ms_simulate.html">ms_simulate()</a></code>), <code>dep_init</code>
+(starting B/K of simulations, default 1; set by <code><a href="ms_condition.html">ms_condition()</a></code>) and
+<code>dep_now</code> (the assessed current B/K, <code>NA</code> if unknown: projections can
+start from it instead of the status-quo equilibrium, see
+<code><a href="ms_start.html">ms_start()</a></code>), <code>plan</code> (1 = a key stock of the management plan, used
+by the plan rules in <code><a href="ms_assessment_presets.html">ms_assessment_presets()</a></code>) and <code>unit</code> (the
+management unit: stocks sharing a unit, e.g. the Norway lobster
+functional units, can be assessed as one stock).</p></dd>
 
 
 <dt>metiers</dt>
@@ -108,7 +114,8 @@ column and one column per stock.</p></dd>
 default <code>efficiency</code>), <code>vessel_cv</code> (spread of vessel efficiency within
 the segment, default 0.25), <code>share_target</code> (target share of days,
 used by <code><a href="ms_tune.html">ms_tune()</a></code>) and <code>capacity</code> (registered days, the default fleet
-capacity of the segment, e.g. for the app).</p></dd>
+capacity of the segment, e.g. for the app) and <code>plan</code> (1 = the segment
+is regulated by the management plan's effort regime).</p></dd>
 
 
 <dt>cost_share</dt>

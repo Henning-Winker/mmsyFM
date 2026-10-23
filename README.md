@@ -28,7 +28,7 @@ plot_kobe(list("Status quo" = sq, "Safeguarded MMSY" = opt), sys)
 Articles:
 
 * `vignette("mmsyFM")`: step by step through the functions, from the status quo to harvest strategies, performance statistics and plots;
-* `vignette("scenario-setup")`: how the Atlantic and Gulf of Thailand systems were built and tuned, with a checklist for your own system;
+* `vignette("scenario-setup")`: how the Atlantic, Gulf of Thailand and Adriatic systems were built and tuned, with a checklist for your own system;
 * `vignette("how-it-works")`: the model, with equations and algorithms;
 * `vignette("management-options")`: the management options in a real-world context.
 
@@ -40,7 +40,7 @@ mmsyFM::run_app()
 
 The app's tabs:
 
-1. **Set-up:** the Atlantic example, the Gulf of Thailand draft or uploaded tables; capacity, profit preference, tuning of the daily costs.
+1. **Set-up:** the Atlantic example, the Gulf of Thailand draft, the Adriatic demersal draft or uploaded tables; capacity, profit preference, tuning of the daily costs.
 2. **Equilibrium:** days by segment and open metiers.
 3. **Yield curves:** shared q, profit-blind and profit-seeking fleets, closures.
 4. **Safeguarded MMSY:** total yield, revenue, profit or the catch of one stock, with every stock at or above Bpa.
@@ -74,6 +74,7 @@ See `vignette("scenario-setup")` for a worked example (Gulf of Thailand) and `vi
 
 - [x] Shiny app (`run_app()`): set-up, equilibrium, yield curves, safeguarded MMSY, harvest strategies with rule comparison, trigger tuning, guide.
 - [x] Gulf of Thailand draft (`got_system_draft()`): 20 stock groups; trawl, purse seine and small-scale fisheries with coastal zoning; conditioned on the 2024 depletions (`ms_condition()`).
+- [x] Adriatic demersal draft (`adriatic_system_draft()`): GFCM GSAs 17-18 management plan; hake, red mullet, sole, rose shrimp, Norway lobster in four functional units, mantis shrimp, cuttlefish; trawl, rapido, nets and pots, two longline fleets; distributions from Panzeri et al. (2024); conditioned on the assessed F/Fmsy, projections from the assessed biomass; management-plan rules (plan stocks and fleets, Norway lobster as one or four units).
 - [x] Monthly (seasonal) closures; habitat landscape for catchability (`ms_landscape()`).
 - [x] Performance statistics in the mseviz format (`ms_perf()`), boxplots, trade-offs and colour-coded decision tables (`plot_quilt()`).
 - [ ] CPUE-based rules (observation model); SSCOM-type effort dynamics (Thorson et al. 2013); real prices and costs for the Gulf of Thailand.

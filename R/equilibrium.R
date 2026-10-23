@@ -163,23 +163,33 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
   out
 }
 
-#' Condition stock status on target depletions
+#' Condition stock status on target depletions or fishing mortality
 #'
 #' Rescales each stock's catchability (its column of `sys$Q`, across all
-#' metiers) so that the open-access equilibrium reaches a target B/Bmsy per
-#' stock, while [ms_tune()] keeps the segment shares of days at
+#' metiers) so that the open-access equilibrium reaches a target B/Bmsy
+#' (`on = "B"`) or a target F/Fmsy (`on = "F"`) per stock, while [ms_tune()] keeps the segment shares of days at
 #' `sys$segments` with total days held fixed (the overall effort level and
 #' the catchability scale are not separately identifiable).
 #'
 #' In the discrete Schaefer model B/Bmsy = 2 - F/Fmsy (with F/Fmsy as
 #' h/hmsy, see [ffmsy()]), so each inner step multiplies a stock's
-#' catchability by ((2 - target) / current F/Fmsy)^damp. Stocks with an `NA`
-#' target are left free. Targets are clamped to `range`.
+#' catchability by (target F/Fmsy / current F/Fmsy)^damp, with target
+#' F/Fmsy = 2 - target B/Bmsy when `on = "B"`. Stocks with an `NA` target are
+#' left free. Targets are clamped to `range`.
+#'
+#' **B or F?** Conditioning on B/Bmsy reproduces the assessed biomass at
+#' equilibrium, so it implies the F that would have produced it in the long
+#' run. Where stocks are far from equilibrium (rebuilding after effort cuts,
+#' or depleted with low F, as in a low-productivity regime), conditioning on
+#' the assessed F/Fmsy keeps today's fishing pressure, and the projections
+#' start from the assessed biomass instead (`dep_now`, see [ms_start()]).
 #'
 #' @param sys an `ms_system` (costs already roughly tuned, e.g. by [ms_tune()]).
-#' @param target named vector of target B/Bmsy (names = stock names or
-#'   codes); `NA` or missing stocks are free.
-#' @param range lower and upper limits of the targets.
+#' @param target named vector of target B/Bmsy or F/Fmsy (names = stock
+#'   names or codes); `NA` or missing stocks are free.
+#' @param on `"B"` (default): targets are B/Bmsy; `"F"`: targets are F/Fmsy.
+#' @param range lower and upper limits of the targets (default 0.05-1.5 for
+#'   B/Bmsy, 0.05-1.95 for F/Fmsy).
 #' @param cap fleet capacity (days) by segment.
 #' @param gamma profit preference.
 #' @param outer,inner number of outer (cost tuning) and inner (catchability)
@@ -197,28 +207,32 @@ ms_shared_q_curve <- function(sys, ref, mult = 10^seq(-1.5, log10(4), length.out
 #'   frame of targets and achieved B/Bmsy and F/Fmsy, and the catchability
 #'   multipliers.
 #' @export
-ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 1.5,
+ms_condition <- function(sys, target, on = c("B", "F"), range = NULL, cap = 1000, gamma = 1.5,
                          outer = 4, inner = 12, tol = 0.02, damp = 0.8, years = 300,
                          verbose = TRUE, recost = TRUE, ...) {
   idx <- match(names(target), sys$species)
   idx[is.na(idx)] <- match(names(target)[is.na(idx)], sys$code)
   if (anyNA(idx)) stop("unknown stock(s) in `target`: ", paste(names(target)[is.na(idx)], collapse = ", "), call. = FALSE)
+  type <- match.arg(on)
+  range <- range %||% if (type == "B") c(0.05, 1.5) else c(0.05, 1.95)
   tg <- rep(NA_real_, sys$S); tg[idx] <- pmin(pmax(target, range[1]), range[2])
   on <- which(!is.na(tg))
+  tgF <- if (type == "B") 2 - tg else tg            # target F/Fmsy
   mult_q <- rep(1, sys$S)
-  dep0 <- sys$dep_init %||% rep(1, sys$S); dep0[on] <- tg[on] / 2; sys$dep_init <- dep0
+  dep0 <- sys$dep_init %||% rep(1, sys$S); dep0[on] <- (2 - tgF[on]) / 2; sys$dep_init <- dep0
   rev0 <- function(s) setNames(as.vector(s$Q %*% (s$price * s$K * colMeans(s$avail))), rownames(s$Q))
   cost_ratio <- sys$cost / rev0(sys)
   eq <- function(s) ms_status_quo(s, capacity = cap, gamma = gamma, years = years, ...)
   for (o in seq_len(outer)) {
     for (i in seq_len(inner)) {
       st <- eq(sys)
-      err <- st$BBmsy[on] - tg[on]
-      if (verbose) message(sprintf("outer %d inner %2d | max |B/Bmsy - target| %.3f (%s) | days %s", o, i,
+      err <- if (type == "B") st$BBmsy[on] - tg[on] else st$FFmsy[on] - tg[on]
+      if (verbose) message(sprintf("outer %d inner %2d | max |%s - target| %.3f (%s) | days %s", o, i,
+                                   if (type == "B") "B/Bmsy" else "F/Fmsy",
                                    max(abs(err)), sys$code[on][which.max(abs(err))],
                                    paste(round(st$E_seg), collapse = "/")))
       if (max(abs(err)) < tol) break
-      f <- ((2 - tg[on]) / pmax(st$FFmsy[on], 1e-3))^damp
+      f <- (tgF[on] / pmax(st$FFmsy[on], 1e-3))^damp
       f <- pmin(pmax(f, 0.2), 5)
       sys$Q[, on] <- sweep(sys$Q[, on, drop = FALSE], 2, f, "*")
       mult_q[on] <- mult_q[on] * f
@@ -232,9 +246,29 @@ ms_condition <- function(sys, target, range = c(0.05, 1.5), cap = 1000, gamma = 
   }
   st <- eq(sys)
   sys$dep_init <- pmin(pmax(st$BBmsy / 2, 1e-3), 1.5)
-  attr(sys, "conditioning") <- data.frame(species = sys$species, code = sys$code, target = tg,
+  attr(sys, "conditioning") <- data.frame(species = sys$species, code = sys$code, on = type, target = tg,
                                           BBmsy = round(st$BBmsy, 3), FFmsy = round(st$FFmsy, 3),
                                           q_mult = round(mult_q, 4), row.names = NULL)
   attr(sys, "status_quo") <- st
   sys
+}
+
+#' Starting biomass of projections
+#'
+#' The biomass at which projections start: the status-quo equilibrium, or
+#' the assessed current biomass (`sys$dep_now`, B/K) where it is known.
+#'
+#' @param sys an `ms_system`.
+#' @param sq a status quo from [ms_status_quo()].
+#' @param from `"assessed"` (default): `dep_now x K` where `dep_now` is
+#'   known, the status-quo equilibrium elsewhere; `"equilibrium"`: the
+#'   status-quo equilibrium for all stocks.
+#' @return Biomass by stock.
+#' @export
+ms_start <- function(sys, sq, from = c("assessed", "equilibrium")) {
+  from <- match.arg(from)
+  B <- sq$B
+  dn <- sys$dep_now
+  if (from == "assessed" && !is.null(dn)) B[!is.na(dn)] <- (dn * sys$K)[!is.na(dn)]
+  stats::setNames(as.vector(B), sys$species)
 }

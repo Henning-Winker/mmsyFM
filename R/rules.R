@@ -35,6 +35,9 @@
 #'   segment at zero (with `Emin = 0`) can reopen from 5% of its reference
 #'   days.
 #' @param assessed,assign,complexes,complex_index see Details.
+#' @param segments the segments the rule regulates (default all); the
+#'   others keep their reference days (e.g. fleets outside a management
+#'   plan's effort regime).
 #' @details
 #'
 #' Each year the assessed B/Bmsy of every stock is the true value times a
@@ -82,7 +85,7 @@ hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rh
                        own_q = 0.5, close = NULL, close_q = 0.5, max_change = Inf, Emin = 0.1,
                        Btrig_close = Btrig, assessed = NULL, assign = NULL,
                        complexes = NULL, complex_index = c("biomass", "cpue"),
-                       aggregate = c("weighted", "min"), seed = 1) {
+                       aggregate = c("weighted", "min"), segments = NULL, seed = 1) {
   complex_index <- match.arg(complex_index); aggregate <- match.arg(aggregate)
   S <- sys$S; G <- sys$G; M <- sys$M; seg <- names(sys$segments)
   qmax <- apply(sys$Q, 2, max)
@@ -108,6 +111,10 @@ hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rh
   if (!is.null(assessed)) {
     if (!all(close %in% assessed)) stop("a unit in `close` must be assessed")
     own[!un %in% assessed, ] <- FALSE
+  }
+  if (!is.null(segments)) {
+    if (!all(segments %in% seg)) stop("unknown segment(s): ", paste(setdiff(segments, seg), collapse = ", "), call. = FALSE)
+    own[, !seg %in% segments] <- FALSE
   }
   ic <- match(close, un)
   if (anyNA(ic)) stop("`close` must name stocks or complexes")
@@ -176,6 +183,11 @@ hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rh
 #'   K) among the stocks it catches as a main fishery, without repeats;
 #' * `complexes`: the species `group`s of the system with two or more
 #'   stocks (stocks alone in their group stay single units);
+#' * `plan`: the key stocks of the management plan (species column `plan`),
+#'   `plan_units` the management units with more than one stock (species
+#'   column `unit`, e.g. the Norway lobster functional units as one stock)
+#'   and `plan_segments` the segments regulated by the plan (segment column
+#'   `plan`); `NULL` when the system does not define them;
 #' * `assign`: each stock assigned to the segment for whose fishery it
 #'   matters most (its largest share of the segment's potential value), its
 #'   "main" fleet.
@@ -183,7 +195,8 @@ hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rh
 #' @param sys an `ms_system`.
 #' @param own_q as in [hcr_effort()].
 #' @return A list with `indicators` (stock names), `complexes` (named list of
-#'   stock names) and `assign` (named list segment -> stock names).
+#'   stock names), `assign` (named list segment -> stock names), and
+#'   `plan`, `plan_units` and `plan_segments`.
 #' @export
 #' @examples
 #' ms_assessment_presets(atlantic_system())
@@ -201,7 +214,11 @@ ms_assessment_presets <- function(sys, own_q = 0.5) {
   }
   grp <- split(sys$species, factor(sys$group, unique(sys$group)))
   main <- seg[apply(sweep(val, 2, pmax(colSums(val), 1e-12), "/"), 1, which.max)]
+  units <- if (is.null(sys$unit)) NULL else split(sys$species, factor(sys$unit, unique(sys$unit)))
   list(indicators = sys$species[sys$species %in% ind],
+       plan = if (is.null(sys$plan) || !any(sys$plan)) NULL else sys$species[sys$plan],
+       plan_units = if (is.null(units)) NULL else units[lengths(units) > 1],
+       plan_segments = if (is.null(sys$plan_seg) || !any(sys$plan_seg)) NULL else names(sys$plan_seg)[sys$plan_seg],
        complexes = grp[lengths(grp) > 1],
        assign = lapply(stats::setNames(seg, seg), function(g) sys$species[main == g]))
 }

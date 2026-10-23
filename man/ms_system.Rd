@@ -19,8 +19,14 @@ ms_system(
 \code{r}, \code{K} and \code{price}; optional \code{code} (short label), \code{group},
 \code{season_amp} (0 = resident, 1 = absent at the low point),
 \code{season_peak} (month of highest availability), \code{F_cap} (cap on
-realised F in units of Fmsy, see \code{\link[=ms_simulate]{ms_simulate()}}) and \code{dep_init}
-(starting B/K of simulations, default 1; set by \code{\link[=ms_condition]{ms_condition()}}).}
+realised F in units of Fmsy, see \code{\link[=ms_simulate]{ms_simulate()}}), \code{dep_init}
+(starting B/K of simulations, default 1; set by \code{\link[=ms_condition]{ms_condition()}}) and
+\code{dep_now} (the assessed current B/K, \code{NA} if unknown: projections can
+start from it instead of the status-quo equilibrium, see
+\code{\link[=ms_start]{ms_start()}}), \code{plan} (1 = a key stock of the management plan, used
+by the plan rules in \code{\link[=ms_assessment_presets]{ms_assessment_presets()}}) and \code{unit} (the
+management unit: stocks sharing a unit, e.g. the Norway lobster
+functional units, can be assessed as one stock).}
 
 \item{metiers}{data frame, one row per métier, with column \code{metier};
 optional \code{tactic}, \code{ground} and \code{cost} (cost per day of a vessel with
@@ -39,7 +45,8 @@ column and one column per stock.}
 default \code{efficiency}), \code{vessel_cv} (spread of vessel efficiency within
 the segment, default 0.25), \code{share_target} (target share of days,
 used by \code{\link[=ms_tune]{ms_tune()}}) and \code{capacity} (registered days, the default fleet
-capacity of the segment, e.g. for the app).}
+capacity of the segment, e.g. for the app) and \code{plan} (1 = the segment
+is regulated by the management plan's effort regime).}
 
 \item{cost_share}{used when \code{metiers} has no \code{cost} column.}
 

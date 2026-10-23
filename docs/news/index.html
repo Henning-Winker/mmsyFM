@@ -23,7 +23,7 @@
 <li class="nav-item dropdown">
   <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
   <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic and Gulf of Thailand</a>
+    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic</a>
     <div class="dropdown-divider"></div>
     <a class="dropdown-item" href="../articles/index.html">More articles...</a>
   </div>
@@ -56,7 +56,11 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="mmsyfm-010">mmsyFM 0.1.0<a class="anchor" aria-label="anchor" href="#mmsyfm-010"></a></h2>
-<ul><li><p>Assessment strategies in the app: rules with indicator species, species complexes (pooled biomass or CPUE) and nominal assignment of stocks to fleets, compared with the all-stocks rule; defaults from <code><a href="../reference/ms_assessment_presets.html">ms_assessment_presets()</a></code>.</p></li>
+<ul><li><p>Adriatic demersal draft (<code><a href="../reference/adriatic_system_draft.html">adriatic_system_draft()</a></code>, preset in the app): GFCM GSAs 17-18, ten stocks incl. four Norway lobster functional units, five fleets on five areas; built in <code>data-raw/adriatic_build.R</code>.</p></li>
+<li><p><code>ms_condition(on = "F")</code> conditions on assessed F/Fmsy; species column <code>dep_now</code> and <code><a href="../reference/ms_start.html">ms_start()</a></code> start projections from the assessed biomass (option “Start from” in the app).</p></li>
+<li><p>Management plans: species columns <code>plan</code> and <code>unit</code>, segment column <code>plan</code>; <code>hcr_effort(segments =)</code>; app rules “HCR plan stocks” and “HCR plan stocks, pooled units” (default when a system defines a plan).</p></li>
+<li><p><code>ms_landscape(distribution =)</code>: stock distribution by cell, e.g. from species distribution models.</p></li>
+<li><p>Assessment strategies in the app: rules with indicator species, species complexes (pooled biomass or CPUE) and nominal assignment of stocks to fleets, compared with the all-stocks rule; defaults from <code><a href="../reference/ms_assessment_presets.html">ms_assessment_presets()</a></code>.</p></li>
 <li><p>First version, ported from the dev-mmsy prototype in cpueTargeting and combined with the multispecies MSY app (mmsyapp).</p></li>
 <li><p>Systems: <code><a href="../reference/ms_system.html">ms_system()</a></code> from four tables; habitat landscape for catchability (<code><a href="../reference/ms_landscape.html">ms_landscape()</a></code>); Atlantic example and Gulf of Thailand draft (<code><a href="../reference/atlantic_system.html">atlantic_system()</a></code>, <code><a href="../reference/got_system_draft.html">got_system_draft()</a></code>).</p></li>
 <li><p>Calibration: <code><a href="../reference/ms_tune.html">ms_tune()</a></code> (fleet composition at open access) and <code><a href="../reference/ms_condition.html">ms_condition()</a></code> (stock status, e.g. 2024 depletions).</p></li>

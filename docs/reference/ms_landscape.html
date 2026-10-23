@@ -25,7 +25,7 @@ metiers fish, instead of writing it by hand:"><!-- mathjax --><script src="file:
 <li class="nav-item dropdown">
   <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
   <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic and Gulf of Thailand</a>
+    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic</a>
     <div class="dropdown-divider"></div>
     <a class="dropdown-item" href="../articles/index.html">More articles...</a>
   </div>
@@ -64,7 +64,14 @@ metiers fish, instead of writing it by hand:</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ms_landscape</span><span class="op">(</span><span class="va">cells</span>, <span class="va">species</span>, <span class="va">metiers</span>, <span class="va">selectivity</span>, q0 <span class="op">=</span> <span class="fl">0.001</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ms_landscape</span><span class="op">(</span></span>
+<span>  <span class="va">cells</span>,</span>
+<span>  <span class="va">species</span>,</span>
+<span>  <span class="va">metiers</span>,</span>
+<span>  <span class="va">selectivity</span>,</span>
+<span>  q0 <span class="op">=</span> <span class="fl">0.001</span>,</span>
+<span>  distribution <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -92,6 +99,14 @@ stock. Values 0-1.</p></dd>
 
 <dt>q0</dt>
 <dd><p>catchability at average density and selectivity 1.</p></dd>
+
+
+<dt>distribution</dt>
+<dd><p>optional: each stock's share of its biomass in each
+cell (cells x stocks, columns named by stock), e.g. from species
+distribution models or survey hot spots. It replaces the depth and
+substrate preferences of <code>species</code> (which then only needs the column
+<code>species</code>); columns are normalised to sum to 1.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -33,7 +33,7 @@ tips <- list(
   tune_min = "Target status of the weakest stock at open access (0.05 = the floor set by the F cap; Atlantic example 0.2). Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
   opt_obj = "What is maximised at equilibrium: <b>total yield</b> (total catch), <b>revenue</b> (catch x price), <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY), or the <b>catch of one stock</b> (e.g. anchovy). Every stock is still kept at or above Bpa.",
-  opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
+  opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.<br><b>Caps for the plan fleets</b>: caps only for the segments regulated by the management plan (e.g. Adriatic trawl and rapido); the others fish at capacity. Faster with many segments.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
   hs_btrig = "Below this B/Bmsy a segment's days are cut: full days at the trigger, a linear ramp down to the minimum effort at Blim (0.25 Bmsy). Default 0.5 Bmsy (the trigger at Bpa, as in ICES and GFCM advice).",
@@ -68,6 +68,8 @@ tips <- list(
   open_m = "Untick to close a metier all year. Its days move to the open metiers by profit (displacement).",
   yc_close_m = "Used only by the 'Profit-seeking + closure' curve: this one metier is closed all year and its days move to the other metiers. The other curves keep every metier open.",
   opt_closed = "Metiers kept closed all year during the optimisation, e.g. a protected reef.",
+  hs_start = "<b>Assessed status</b>: projections start from the assessed biomass of each stock (where the system has it), with the fleet at its status-quo days, so stocks that are rebuilding or depleted start where they are now. <b>Status-quo equilibrium</b>: every stock starts at the long-run equilibrium of the status-quo days.",
+  hs_plan = "Available when the system defines a management plan (e.g. the Adriatic demersal plan, Rec. GFCM/43/2019/5). The rule regulates only the plan's fleets (the others fish at capacity) and responds only to the plan's key stocks. <b>Shared units as one stock</b>: stocks of one management unit are assessed together (e.g. the four Norway lobster functional units as one stock, as in the plan), so a healthy unit can hide depleted ones; without it, each unit is assessed and managed on its own status.",
   hs_assessment = "What the rule can see. <b>Indicator species</b>: only the listed stocks are assessed; a segment answers only for the indicators it fishes, and a segment that fishes none is not constrained. <b>Species complexes</b>: the stocks of each complex are assessed as one unit; stocks in no complex are assessed alone. <b>Nominal assignment</b>: every stock is assessed, but each is managed through one segment only; the other segments are not cut for it.",
   hs_assess_agg = "How these rules form a fleet's status from the units it answers for. Compare with the all-stocks rule of the same kind ('HCR, weakest link' or 'HCR, value-weighted'). Differences show most with the weakest link: a complex or a missing assessment can hide a depleted stock. With value-weighted status the healthy, valuable stocks dominate and the rule may rarely cut effort.",
   hs_ind = "The assessed stocks. Default: one per segment, the stock of highest value to that segment.",
@@ -112,10 +114,14 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(width = 3,
         selectInput("preset", info("preset", "System"), c("Atlantic example" = "atlantic",
-          "Gulf of Thailand (draft)" = "got", "Upload tables" = "upload")),
+          "Gulf of Thailand (draft)" = "got", "Adriatic demersal (draft)" = "adriatic", "Upload tables" = "upload")),
         conditionalPanel("input.preset == 'got'", p(class = "note draft",
           "Draft: 20 stock groups (from mmsyapp), trawl / purse seine / small-scale with coastal zoning.",
           "Prices, gear overlaps and costs are indicative; the stocks are conditioned on the 2024 depletions where available.")),
+        conditionalPanel("input.preset == 'adriatic'", p(class = "note draft",
+          "Draft: GFCM GSAs 17-18 demersal management plan. 10 stocks (hake, red mullet, sole, rose shrimp, Norway lobster in 4 units, mantis shrimp, cuttlefish),",
+          "trawl (5 grounds incl. Pomo Pits and GSA 18 slope), rapido, nets and pots, two longline fleets.",
+          "Conditioned on the assessed F/Fmsy (2023-2024); projections start from the assessed biomass. Prices and costs are indicative.")),
         conditionalPanel("input.preset == 'upload'",
           fileInput("f_species", "species.csv"), fileInput("f_metiers", "metiers.csv"),
           fileInput("f_q", "catchability.csv"), fileInput("f_segments", "segments.csv"),
@@ -167,9 +173,9 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(width = 3,
         selectInput("opt_obj", info("opt_obj", "Objective"), c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit")),
-        radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments")),
+        radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments", "Caps for the plan fleets" = "plan")),
         p(class = "note", "The viability floor applies only to caps by segment: with one global cap the split across segments is fixed at the status-quo shares."),
-        conditionalPanel("input.opt_levers == 'segments'",
+        conditionalPanel("input.opt_levers != 'total'",
           sliderInput("opt_minshare", info("opt_minshare", "Viability floor (minimum share per segment)"), 0, 0.33, 0, 0.01)),
         numericInput("opt_bpa", info("opt_bpa", "Safeguard Bpa (B/Bmsy)"), 0.5, 0.1, 1, 0.05),
         uiOutput("opt_close"),
@@ -187,7 +193,9 @@ ui <- navbarPage(
             "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure for a stock (full = MMSY)" = "hcr_close",
             "Metier closures only" = "mclose_only", "HCR + metier closures (full = MMSY)" = "mclose_hcr",
             "HCR, indicator species (full = MMSY)" = "hcr_ind", "HCR, species complexes (full = MMSY)" = "hcr_cplx",
-            "HCR, nominal assignment (full = MMSY)" = "hcr_asg"),
+            "HCR, nominal assignment (full = MMSY)" = "hcr_asg",
+            "HCR, management-plan stocks (full = MMSY)" = "hcr_plan",
+            "HCR, management-plan stocks, shared units as one stock (full = MMSY)" = "hcr_plan_pool"),
           c("none", "mmsy", "hcr_w", "hcr_min")),
         p(class = "note", "Full effort = the safeguarded-MMSY days from tab 4, with its settings and closures (computed here with defaults if tab 4 has not been run: 1-3 min)."),
         uiOutput("hs_ref"),
@@ -205,9 +213,11 @@ ui <- navbarPage(
           sliderInput("hs_btrig_close", info("hs_btrig_close", "Closure trigger (B/Bmsy)"), 0.3, 2, 1, 0.05)),
         sliderInput("hs_emin", info("hs_emin", "Minimum effort (share of full effort)"), 0, 0.5, 0.1, 0.05),
         sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change in days (1 = no limit)"), 0.05, 1, 0.2, 0.05),
-        conditionalPanel("input.hs_rules && (input.hs_rules.indexOf('hcr_ind') > -1 || input.hs_rules.indexOf('hcr_cplx') > -1 || input.hs_rules.indexOf('hcr_asg') > -1)",
+        conditionalPanel("input.hs_rules && (input.hs_rules.indexOf('hcr_ind') > -1 || input.hs_rules.indexOf('hcr_cplx') > -1 || input.hs_rules.indexOf('hcr_asg') > -1 || input.hs_rules.indexOf('hcr_plan') > -1 || input.hs_rules.indexOf('hcr_plan_pool') > -1)",
           h5(info("hs_assessment", "Assessment")),
           p(class = "note", "Used by the indicator, complex and assignment rules; the other HCRs assess every stock separately. Defaults come from the system and can be edited."),
+          conditionalPanel("input.hs_rules.indexOf('hcr_plan') > -1 || input.hs_rules.indexOf('hcr_plan_pool') > -1",
+            p(class = "note", info("hs_plan", "Management-plan rules"), uiOutput("hs_plan_txt", inline = TRUE))),
           radioButtons("hs_assess_agg", info("hs_assess_agg", "Fleet status from its stocks"),
                        c("Weakest link" = "min", "Value-weighted" = "weighted"), inline = TRUE),
           conditionalPanel("input.hs_rules.indexOf('hcr_ind') > -1", uiOutput("hs_ind_ui")),
@@ -225,6 +235,7 @@ ui <- navbarPage(
         radioButtons("proc_center", info("proc_center", "Process error centred on"), c("median", "mean"), inline = TRUE),
         sliderInput("proc_rho", info("proc_rho", "Process AR(1)"), 0, 0.9, 0.3, 0.1),
         h5("Simulation"),
+        uiOutput("hs_start_ui"),
         numericInput("hs_nsim", info("hs_nsim", "Simulations"), 100, 10, 1000, 10),
         numericInput("hs_years", info("hs_years", "Years"), 40, 10, 100, 5),
         actionButton("run_hs", "Run", class = "btn-primary")),
@@ -295,7 +306,8 @@ server <- function(input, output, session) {
   # capacity, so a tuned system is kept)
   observeEvent(list(input$preset, input$f_species, input$f_metiers, input$f_q, input$f_segments,
                     input$season_amp), {
-    sys <- if (input$preset == "atlantic") atlantic_system() else if (input$preset == "got") got_system_draft() else {
+    sys <- if (input$preset == "atlantic") atlantic_system() else if (input$preset == "got") got_system_draft() else
+      if (input$preset == "adriatic") adriatic_system_draft() else {
       req(input$f_species, input$f_metiers, input$f_q, input$f_segments)
       rd <- function(f) utils::read.csv(f$datapath, check.names = FALSE, stringsAsFactors = FALSE)
       tryCatch(ms_system(rd(input$f_species), rd(input$f_metiers), rd(input$f_q), rd(input$f_segments),
@@ -405,11 +417,14 @@ server <- function(input, output, session) {
   output$opt_close <- renderUI(checkboxGroupInput("opt_closed", info("opt_closed", "Closed metiers"), req(rv$sys)$metiers$name))
   opt <- eventReactive(input$run_opt, {
     sys <- rv$sys
-    lev <- if (input$opt_levers == "total") "total" else names(sys$segments)
+    ps <- ms_assessment_presets(sys)$plan_segments
+    if (input$opt_levers == "plan") validate(need(length(ps) > 0, "This system has no plan fleets (segment column 'plan')."))
+    lev <- switch(input$opt_levers, total = "total", segments = names(sys$segments), plan = ps)
+    fx <- if (identical(input$opt_levers, "plan")) cap()[setdiff(names(sys$segments), ps)] else NULL
     withProgress(message = "Optimising", value = 0.2,
-      ms_optimise(sys, input$opt_obj, levers = lev, upper = if (identical(lev, "total")) sum(cap()) else cap(),
+      ms_optimise(sys, input$opt_obj, levers = lev, fixed = fx, upper = if (identical(lev, "total")) sum(cap()) else cap()[lev],
                   ratio = rv$sq$E_seg / sum(rv$sq$E_seg),
-                  Bpa = input$opt_bpa, min_share = if (input$opt_levers == "segments") input$opt_minshare else 0, gamma = input$gamma, years = 150,
+                  Bpa = input$opt_bpa, min_share = if (input$opt_levers != "total") input$opt_minshare else 0, gamma = input$gamma, years = 150,
                   open = as.numeric(!sys$metiers$name %in% input$opt_closed)))
   })
   # objective choices: the totals and the catch of each stock of the loaded system
@@ -444,6 +459,12 @@ server <- function(input, output, session) {
     validate(need(length(input$hs_mclose) > 0, "Tick at least one metier to close for the metier-closure rules."))
     ms_closure(rv$sys, input$hs_mclose, seq(input$hs_mclose_months[1], input$hs_mclose_months[2]), input$hs_mclose_share)
   }
+  # starting state: the assessed biomass where the system has it (dep_now), else the status quo
+  output$hs_start_ui <- renderUI({ sys <- rv$sys; req(sys)
+    if (any(!is.na(sys$dep_now %||% NA)))
+      radioButtons("hs_start", info("hs_start", "Start from"), c("Assessed status" = "assessed",
+        "Status-quo equilibrium" = "equilibrium"), inline = TRUE) })
+  start_B <- function() ms_start(rv$sys, rv$sq, input$hs_start %||% "assessed")
   presets <- reactive(ms_assessment_presets(req(rv$sys)))
   output$hs_ind_ui <- renderUI(selectInput("hs_ind", info("hs_ind", "Indicator species"), rv$sys$species,
     presets()$indicators, multiple = TRUE))
@@ -466,6 +487,22 @@ server <- function(input, output, session) {
   }
   assign_in <- function() { a <- presets()$assign
     stats::setNames(lapply(names(a), function(g) input[[paste0("asg_", g)]] %||% a[[g]]), names(a)) }
+  plan_rule <- function(pool) {
+    p <- presets()
+    validate(need(length(p$plan) > 0, "This system has no management plan (species column 'plan')."))
+    units <- if (pool) p$plan_units else NULL
+    assessed <- unique(c(p$plan[!p$plan %in% unlist(units)],
+                         names(units)[vapply(units, function(u) any(u %in% p$plan), TRUE)]))
+    list(assessed = assessed, complexes = units, segments = p$plan_segments)
+  }
+  output$hs_plan_txt <- renderUI({ p <- presets()
+    if (!length(p$plan)) return("this system has no management plan.")
+    HTML(paste0(": key stocks ", paste(p$plan, collapse = ", "), "; fleets ",
+                paste(p$plan_segments %||% names(rv$sys$segments), collapse = ", "),
+                if (length(p$plan_units)) paste0("; shared units: ", paste(names(p$plan_units), collapse = ", ")) else "", ".")) })
+  observeEvent(rv$sys, { p <- presets()
+    sel <- if (length(p$plan)) c("none", "mmsy", "hcr_plan", "hcr_plan_pool") else c("none", "mmsy", "hcr_w", "hcr_min")
+    updateCheckboxGroupInput(session, "hs_rules", selected = sel) })
   rule_args <- reactive(list(Btrig = btrig(), Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess, own_q = if (isTRUE(input$hs_bycatch)) 0.2 else 0.5,
@@ -480,8 +517,8 @@ server <- function(input, output, session) {
     closed <- input$opt_closed
     mmsy_cache(list(key = ref_key(), caps = o$caps,
       open = as.numeric(!rv$sys$metiers$name %in% closed),
-      desc = paste0("tab 4 (", input$opt_obj, ", ", if (input$opt_levers == "total") "one global cap" else "caps by segment",
-                    if (input$opt_levers == "segments" && input$opt_minshare > 0) paste0(", floor ", input$opt_minshare) else "",
+      desc = paste0("tab 4 (", input$opt_obj, ", ", switch(input$opt_levers, total = "one global cap", segments = "caps by segment", plan = "caps for the plan fleets"),
+                    if (input$opt_levers != "total" && input$opt_minshare > 0) paste0(", floor ", input$opt_minshare) else "",
                     ", Bpa ", input$opt_bpa, ", closed: ", if (length(closed)) paste(closed, collapse = ", ") else "none", ")")))
   } })
   # the full (reference) effort of the MMSY-based rules: caps, open metiers and a description
@@ -489,8 +526,10 @@ server <- function(input, output, session) {
     m <- mmsy_cache()
     if (!is.null(m) && identical(m$key, ref_key())) return(m)
     o <- withProgress(message = "Computing the safeguarded MMSY effort (once)", value = 0.2,
-      ms_optimise(rv$sys, "yield", levers = names(rv$sys$segments), upper = cap(), Bpa = 0.5,
-                  gamma = input$gamma, years = 150, capacity = cap()))
+      { ps <- ms_assessment_presets(rv$sys)$plan_segments
+        lev <- if (length(ps)) ps else names(rv$sys$segments)        # plan fleets only, when defined
+        ms_optimise(rv$sys, "yield", levers = lev, fixed = if (length(ps)) cap()[setdiff(names(rv$sys$segments), ps)],
+                    upper = cap()[lev], Bpa = 0.5, gamma = input$gamma, years = 150, capacity = cap()) })
     validate(need(isTRUE(o$feasible), "No safeguarded MMSY solution: every stock cannot be kept above Bpa."))
     m <- list(key = ref_key(), caps = o$caps, open = rep(1, rv$sys$M),
               desc = "defaults (yield, caps by segment, Bpa 0.5, no floor, no closures)")
@@ -506,8 +545,8 @@ server <- function(input, output, session) {
   hs <- eventReactive(input$run_hs, {
     sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
     validate(need(length(sel) > 0, "Tick at least one rule."))
-    B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
-    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr", "hcr_ind", "hcr_cplx", "hcr_asg") %in% sel)) mmsy_ref()
+    B0 <- matrix(start_B(), n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
+    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr", "hcr_ind", "hcr_cplx", "hcr_asg", "hcr_plan", "hcr_plan_pool") %in% sel)) mmsy_ref()
     if ("hcr_ind" %in% sel) validate(need(length(input$hs_ind %||% presets()$indicators) > 0, "Choose at least one indicator species."))
     opc <- if (any(c("mclose_only", "mclose_hcr") %in% sel)) mclose_open()
     Em <- if (!is.null(ref)) matrix(ref$caps, n, sys$G, byrow = TRUE)
@@ -519,7 +558,8 @@ server <- function(input, output, session) {
               hcr_min = "HCR weakest link", hcr_sq = "HCR value-weighted, full = status quo",
               hcr_close = "HCR + stock closure", mclose_only = "Metier closures only",
               mclose_hcr = "HCR + metier closures", hcr_ind = "HCR indicator species",
-              hcr_cplx = "HCR species complexes", hcr_asg = "HCR nominal assignment")
+              hcr_cplx = "HCR species complexes", hcr_asg = "HCR nominal assignment",
+              hcr_plan = "HCR plan stocks", hcr_plan_pool = "HCR plan stocks, pooled units")
     out <- list()
     withProgress(message = "Simulating", value = 0, {
       for (k in sel) {
@@ -537,7 +577,13 @@ server <- function(input, output, session) {
           hcr_ind = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", assessed = input$hs_ind %||% presets()$indicators), open = ref$open),
           hcr_cplx = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", complexes = complexes_in(), complex_index = input$hs_cindex %||% "biomass"),
                          open = ref$open),
-          hcr_asg = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", assign = assign_in()), open = ref$open))
+          hcr_asg = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", assign = assign_in()), open = ref$open),
+          hcr_plan = , hcr_plan_pool = { pr <- plan_rule(k == "hcr_plan_pool")
+            # fleets outside the plan keep their capacity (no effort limit)
+            Ep <- Em; outp <- !names(sys$segments) %in% (pr$segments %||% names(sys$segments))
+            if (any(outp)) Ep[, outp] <- matrix(cap()[outp], n, sum(outp), byrow = TRUE)
+            run(Ep, rule(aggregate = input$hs_assess_agg %||% "min", assessed = pr$assessed,
+                         complexes = pr$complexes, segments = pr$segments), open = ref$open) })
       }
     })
     out
@@ -569,7 +615,7 @@ server <- function(input, output, session) {
       do.call(ms_tune_hcr, c(list(sys, triggers = seq(input$tu_eff[1], input$tu_eff[2], by = 0.1),
         close = ra$close, close_triggers = if (is.null(ra$close)) NULL else ct,
         risk = c(worst_P_below_Bpa = input$tu_risk), E_ref = mmsy_ref()$caps, open = mmsy_ref()$open,
-        E_init = sq$E_seg, B_init = sq$B,
+        E_init = sq$E_seg, B_init = start_B(),
         nsim = input$tu_nsim, years = input$hs_years, eval_years = max(1, input$hs_years - 19):input$hs_years,
         assess_cv = input$hs_assess, max_change = ra$max_change, Emin = ra$Emin, own_q = ra$own_q), sim_args())))
   })

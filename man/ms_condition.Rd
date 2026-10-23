@@ -2,12 +2,13 @@
 % Please edit documentation in R/equilibrium.R
 \name{ms_condition}
 \alias{ms_condition}
-\title{Condition stock status on target depletions}
+\title{Condition stock status on target depletions or fishing mortality}
 \usage{
 ms_condition(
   sys,
   target,
-  range = c(0.05, 1.5),
+  on = c("B", "F"),
+  range = NULL,
   cap = 1000,
   gamma = 1.5,
   outer = 4,
@@ -23,10 +24,13 @@ ms_condition(
 \arguments{
 \item{sys}{an \code{ms_system} (costs already roughly tuned, e.g. by \code{\link[=ms_tune]{ms_tune()}}).}
 
-\item{target}{named vector of target B/Bmsy (names = stock names or
-codes); \code{NA} or missing stocks are free.}
+\item{target}{named vector of target B/Bmsy or F/Fmsy (names = stock
+names or codes); \code{NA} or missing stocks are free.}
 
-\item{range}{lower and upper limits of the targets.}
+\item{on}{\code{"B"} (default): targets are B/Bmsy; \code{"F"}: targets are F/Fmsy.}
+
+\item{range}{lower and upper limits of the targets (default 0.05-1.5 for
+B/Bmsy, 0.05-1.95 for F/Fmsy).}
 
 \item{cap}{fleet capacity (days) by segment.}
 
@@ -57,14 +61,22 @@ multipliers.
 }
 \description{
 Rescales each stock's catchability (its column of \code{sys$Q}, across all
-metiers) so that the open-access equilibrium reaches a target B/Bmsy per
-stock, while \code{\link[=ms_tune]{ms_tune()}} keeps the segment shares of days at
+metiers) so that the open-access equilibrium reaches a target B/Bmsy
+(\code{on = "B"}) or a target F/Fmsy (\code{on = "F"}) per stock, while \code{\link[=ms_tune]{ms_tune()}} keeps the segment shares of days at
 \code{sys$segments} with total days held fixed (the overall effort level and
 the catchability scale are not separately identifiable).
 }
 \details{
 In the discrete Schaefer model B/Bmsy = 2 - F/Fmsy (with F/Fmsy as
 h/hmsy, see \code{\link[=ffmsy]{ffmsy()}}), so each inner step multiplies a stock's
-catchability by ((2 - target) / current F/Fmsy)^damp. Stocks with an \code{NA}
-target are left free. Targets are clamped to \code{range}.
+catchability by (target F/Fmsy / current F/Fmsy)^damp, with target
+F/Fmsy = 2 - target B/Bmsy when \code{on = "B"}. Stocks with an \code{NA} target are
+left free. Targets are clamped to \code{range}.
+
+\strong{B or F?} Conditioning on B/Bmsy reproduces the assessed biomass at
+equilibrium, so it implies the F that would have produced it in the long
+run. Where stocks are far from equilibrium (rebuilding after effort cuts,
+or depleted with low F, as in a low-productivity regime), conditioning on
+the assessed F/Fmsy keeps today's fishing pressure, and the projections
+start from the assessed biomass instead (\code{dep_now}, see \code{\link[=ms_start]{ms_start()}}).
 }

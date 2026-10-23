@@ -61,3 +61,23 @@ test_that("the app compares several rules, with full effort from the safeguarded
     expect_type(output$hs_perf, "character")
   })
 })
+
+test_that("the app runs the Adriatic management-plan rules from the assessed status", {
+  skip_if_not_installed("shiny")
+  skip_on_cran()
+  app <- new.env()
+  src <- readLines(system.file("shiny", "mmsyFM", "app.R", package = "mmsyFM"))
+  eval(parse(text = src[!grepl("^shinyApp\\(", src)]), envir = app)
+  shiny::testServer(app$server, {
+    session$setInputs(preset = "adriatic", gamma = 1.5, season_amp = 0)
+    expect_equal(rv$sys$S, 10)
+    session$setInputs(hs_close_s = "none", hs_rules = c("none", "hcr_plan", "hcr_plan_pool"), hs_btrig = 0.5,
+                      hs_trig_seg = FALSE, hs_bycatch = FALSE, hs_btrig_close = 1, hs_emin = 0.1, hs_maxchange = 0.2,
+                      hs_lag = 2, hs_assess = 0.2, hs_impl = 0.1, hs_effort = 0.1, proc_scale = 1, proc_dep = TRUE,
+                      proc_center = "median", proc_rho = 0.3, hs_nsim = 3, hs_years = 6, hs_start = "assessed",
+                      hs_assess_agg = "min", run_hs = 1)
+    r <- hs()
+    expect_equal(names(r), c("No control", "HCR plan stocks", "HCR plan stocks, pooled units"))
+    expect_equal(unname(r[[1]]$init$B[1, ] / rv$sys$K), rv$sys$dep_now, tolerance = 1e-6)
+  })
+})
