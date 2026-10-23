@@ -1,8 +1,11 @@
 Package: mmsyFM
 Title: Multispecies MSY Fleet Model for Mixed-Fishery Harvest Strategies
 Version: 0.1.0
-Authors@R: 
-    person("Henning", "Winker", email = "henning.winker@fao.org", role = c("aut", "cre"))
+Authors@R: c(
+    person("Henning", "Winker", email = "henning.winker@fao.org", role = c("aut", "cre")),
+    person("Ricardo", "Amoroso", role = "aut"),
+    person("Maite", "Pons", role = "aut"),
+    person("Rishi", "Sharma", role = "aut"))
 Description: Simulates mixed fisheries in which fleet segments (e.g. demersal,
     pelagic and mixed or small-scale) allocate their fishing days across
     metiers by expected profit, on top of Schaefer surplus-production stocks
@@ -18,10 +21,12 @@ Roxygen: list(markdown = TRUE)
 Depends: 
     R (>= 4.1)
 Imports: 
+    data.table,
     ggplot2 (>= 3.4.0),
     stats,
     utils
 Suggests: 
+    commonmark,
     ggrepel,
     knitr,
     patchwork,

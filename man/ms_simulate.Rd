@@ -69,7 +69,8 @@ a seasonal closure), or a function of the year returning either.}
 (default 2: data of year y - 2, assessed in y - 1, advice for y). Before the
 projection the data years are taken to be the initial state.}
 
-\item{B_init}{n x S initial biomass (default K)}
+\item{B_init}{initial biomass (n x S, or one value per stock); default
+\code{sys$dep_init * K} (the system's starting depletion, 1 if not set)}
 
 \item{E_init}{initial effort by segment (vector of length G or n x G; default the caps)}
 
@@ -144,7 +145,7 @@ Default \code{NULL}: hard without process error (equilibrium and tuning),
 p = 8 with process error (stochastic runs).}
 }
 \value{
-An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, and the system.
+An object of class \code{ms_sim}: arrays \code{B}, \code{C}, \code{F} (years x rows x stocks), \code{E_metier}, \code{E_seg_metier}, \code{E_seg}, matrices \code{revenue}, \code{profit}, the system, and \code{init} (the year-0 biomass and days, rows x stocks / segments).
 }
 \description{
 Annual Schaefer growth on start-of-year biomass; catches removed

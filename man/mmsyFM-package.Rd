@@ -44,6 +44,9 @@ Useful links:
 Authors:
 \itemize{
   \item Henning Winker \email{henning.winker@fao.org}
+  \item Ricardo Amoroso
+  \item Maite Pons
+  \item Rishi Sharma
 }
 
 }

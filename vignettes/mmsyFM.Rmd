@@ -59,7 +59,7 @@ behaviour is treated:
 mult <- c(0, 10^seq(-1.5, log10(6), length.out = 30))
 no_reef <- replace(rep(1, sys$M), sys$metiers$name == "Reef_shallow", 0)
 curves <- list(
-  "Shared q (mse.SEA)" = ms_shared_q_curve(sys, sq),
+  "Shared q" = ms_shared_q_curve(sys, sq),
   "Profit-seeking (gamma 1.5)" = ms_yield_curve(sys, sq$E_seg, mult, years = 200, gamma = 1.5),
   "Profit-seeking + reef closed" = ms_yield_curve(sys, sq$E_seg, mult, years = 200, gamma = 1.5, open = no_reef))
 plot_yield_curves(curves, ref = sq, sys = sys)

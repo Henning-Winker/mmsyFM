@@ -6,8 +6,9 @@
 #' @param species data frame, one row per stock, with columns `species`,
 #'   `r`, `K` and `price`; optional `code` (short label), `group`,
 #'   `season_amp` (0 = resident, 1 = absent at the low point),
-#'   `season_peak` (month of highest availability) and `F_cap` (cap on
-#'   realised F in units of Fmsy, see [ms_simulate()]).
+#'   `season_peak` (month of highest availability), `F_cap` (cap on
+#'   realised F in units of Fmsy, see [ms_simulate()]) and `dep_init`
+#'   (starting B/K of simulations, default 1; set by [ms_condition()]).
 #' @param metiers data frame, one row per métier, with column `metier`;
 #'   optional `tactic`, `ground` and `cost` (cost per day of a vessel with
 #'   efficiency 1). Without `cost`, costs are `cost_share` times each
@@ -21,8 +22,9 @@
 #'   (on home métiers, default 1), `efficiency_away` (default `efficiency`),
 #'   `cost_multiplier` (daily cost relative to a vessel of efficiency 1,
 #'   default `efficiency`), `vessel_cv` (spread of vessel efficiency within
-#'   the segment, default 0.25) and `share_target` (target share of days,
-#'   used by [ms_tune()]).
+#'   the segment, default 0.25), `share_target` (target share of days,
+#'   used by [ms_tune()]) and `capacity` (registered days, the default fleet
+#'   capacity of the segment, e.g. for the app).
 #' @param cost_share used when `metiers` has no `cost` column.
 #' @param effort_season_amp seasonal amplitude of effort (0 = equal months;
 #'   effort peaks in July).
@@ -86,11 +88,15 @@ ms_system <- function(species, metiers, catchability, segments,
   cost_seg <- setNames(segments$cost_multiplier %||% eff_home, seg)
   vessel_cv <- segments$vessel_cv %||% rep(0.25, G)
   shares <- setNames(segments$share_target %||% rep(1 / G, G), seg)
+  capacity <- if (is.null(segments$capacity) || all(is.na(segments$capacity))) NULL else
+    setNames(as.numeric(segments$capacity), seg)
 
   rev0 <- as.vector(Q %*% (species$price * species$K * colMeans(avail)))
   cost <- metiers$cost %||% (cost_share * rev0)
 
   fcap <- species$F_cap %||% rep(F_cap, S); fcap[is.na(fcap)] <- F_cap
+  dep0 <- species$dep_init %||% rep(1, S); dep0[is.na(dep0)] <- 1
+  if (any(dep0 <= 0 | dep0 > 1.5)) stop("`dep_init` must be in (0, 1.5]", call. = FALSE)
   if (any(fcap <= 0)) stop("`F_cap` must be positive", call. = FALSE)
 
   mt <- data.frame(name = met, tactic = metiers$tactic %||% met, ground = metiers$ground %||% NA,
@@ -98,9 +104,9 @@ ms_system <- function(species, metiers, catchability, segments,
   structure(list(
     species = sp, code = as.character(species$code %||% abbreviate(sp, 3)),
     group = as.character(species$group %||% rep("stock", S)),
-    r = species$r, K = species$K, price = species$price, F_cap = fcap,
+    r = species$r, K = species$K, price = species$price, F_cap = fcap, dep_init = dep0,
     metiers = mt, Q = Q, avail = avail, month_w = month_w,
-    segments = shares, home = home, loyalty = setNames(segments$loyalty, seg), eff = eff,
+    segments = shares, capacity = capacity, home = home, loyalty = setNames(segments$loyalty, seg), eff = eff,
     cost_seg = cost_seg, vessel_cv = mean(vessel_cv),
     cost = setNames(cost, met), rev0 = setNames(rev0, met),
     S = S, M = M, G = G), class = "ms_system")
@@ -150,7 +156,7 @@ write_ms_system <- function(sys, dir, prefix) {
   amp <- 1 - apply(sys$avail, 2, min)
   wr(data.frame(species = sys$species, code = sys$code, group = sys$group, r = sys$r, K = sys$K,
                 price = sys$price, season_amp = round(amp, 6),
-                season_peak = apply(sys$avail, 2, which.max), F_cap = sys$F_cap %||% Inf), "species")
+                season_peak = apply(sys$avail, 2, which.max), F_cap = sys$F_cap %||% Inf, dep_init = sys$dep_init %||% 1), "species")
   wr(data.frame(metier = sys$metiers$name, tactic = sys$metiers$tactic, ground = sys$metiers$ground,
                 cost = sys$cost), "metiers")
   wr(data.frame(metier = rownames(sys$Q), sys$Q, check.names = FALSE), "catchability")
@@ -160,6 +166,7 @@ write_ms_system <- function(sys, dir, prefix) {
                 efficiency_away = vapply(seq_len(sys$G), function(g) {
                   a <- sys$eff[g, sys$home[g, ] == 0]; if (length(a)) max(a) else max(sys$eff[g, ]) }, 0),
                 cost_multiplier = sys$cost_seg, vessel_cv = sys$vessel_cv,
+                capacity = if (is.null(sys$capacity)) NA else sys$capacity,
                 home = vapply(seg, function(g) if (all(sys$home[g, ] > 0)) "" else
                   paste(colnames(sys$home)[sys$home[g, ] > 0], collapse = ";"), "")), "segments")
   invisible(dir)

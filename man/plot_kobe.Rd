@@ -12,6 +12,7 @@ plot_kobe(
   Btrigger = 0.8,
   Ftgt = 1,
   Bclose = Blim,
+  Fmin = 0.1,
   zones = c("hcr", "simple"),
   palette = c("pastel", "flref"),
   alpha = 1
@@ -25,8 +26,10 @@ plot_kobe(
 
 \item{Bpa, Blim}{reference points relative to Bmsy (\code{Bpa} is Bthresh).}
 
-\item{Btrigger, Ftgt, Bclose}{HCR trigger, target F (relative to Fmsy) and
-biomass at which F reaches zero (default \code{Blim}, as in \code{\link[=hcr_effort]{hcr_effort()}}).}
+\item{Btrigger, Ftgt, Bclose, Fmin}{HCR trigger, target F (relative to Fmsy),
+biomass at and below which F is at its minimum (default \code{Blim}, as in
+\code{\link[=hcr_effort]{hcr_effort()}}) and that minimum F (default 0.1, the minimum effort
+\code{Emin} of \code{\link[=hcr_effort]{hcr_effort()}}).}
 
 \item{zones}{\code{"hcr"} (coloured zones and the HCR line) or \code{"simple"}.}
 
@@ -43,8 +46,9 @@ One point per stock, one panel per scenario. With \code{zones = "hcr"} the
 background follows the WKREF/GFCM convention of \code{FLRef::plotWKREF()},
 with zones cut by the harvest control rule: below Bthresh, red above the
 HCR line and yellow below it; above Bthresh, orange above and green
-below; a dark overlay below Blim. The HCR line is F = 0 up to \code{Bclose},
-a linear ramp to \code{Ftgt} at \code{Btrigger}, and \code{Ftgt} above.
+below; a dark overlay below Blim. The HCR line is \code{Fmin} up to \code{Bclose},
+a linear ramp to \code{Ftgt} at \code{Btrigger}, and \code{Ftgt} above (as
+\code{FLRef::plotGFCM(fmin = 0.1, bclose = 0.25, btrigger = 0.8)}).
 }
 \examples{
 sys <- atlantic_system()

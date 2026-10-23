@@ -8,12 +8,17 @@ export(got_species)
 export(got_system_draft)
 export(hcr_effort)
 export(ms_cols)
+export(ms_condition)
 export(ms_ink)
+export(ms_landscape)
 export(ms_open_access)
 export(ms_optimise)
+export(ms_perf)
+export(ms_perf_table)
 export(ms_performance)
 export(ms_shared_q_curve)
 export(ms_simulate)
+export(ms_statistics)
 export(ms_status_quo)
 export(ms_summary)
 export(ms_system)
@@ -21,10 +26,14 @@ export(ms_tune)
 export(ms_tune_hcr)
 export(ms_yield_curve)
 export(perf_rows)
+export(plot_bps)
 export(plot_catchability)
 export(plot_fleet)
 export(plot_kobe)
+export(plot_landscape)
 export(plot_projection)
+export(plot_quilt)
+export(plot_tradeoffs)
 export(plot_yield_curves)
 export(proc_sd_from_r)
 export(read_ms_system)
@@ -39,12 +48,16 @@ importFrom(ggplot2,
   coord_cartesian,
   element_blank,
   element_line,
+  element_rect,
   element_text,
   expansion,
+  facet_grid,
   facet_wrap,
   geom_area,
+  geom_boxplot,
   geom_hline,
   geom_line,
+  geom_linerange,
   geom_point,
   geom_ribbon,
   geom_step,
@@ -52,15 +65,19 @@ importFrom(ggplot2,
   geom_tile,
   geom_vline,
   ggplot,
+  label_parsed,
+  labeller,
   labs,
   margin,
   rel,
   scale_colour_manual,
   scale_fill_gradient,
+  scale_fill_gradientn,
   scale_fill_manual,
   scale_linetype_identity,
   scale_shape_manual,
   scale_x_continuous,
+  scale_x_discrete,
   scale_x_log10,
   scale_y_continuous,
   theme,

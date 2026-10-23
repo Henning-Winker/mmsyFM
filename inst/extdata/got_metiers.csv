@@ -1,11 +1,11 @@
-metier,tactic,ground
-SS_crab,Crab gillnet and trap,coastal
-SS_shrimp,Shrimp trammel and gillnet,coastal
-SS_pelagic_gillnet,Encircling and drift gillnet,coastal
-SS_hook_trap,"Hook and line, fish trap",coastal
-SS_cephalopod,Cephalopod trap and jig,coastal
-TR_inner,"Trawl inner shelf (15-30 m, mud)",offshore
-TR_mid,Trawl mid shelf (30-50 m),offshore
-TR_outer,"Trawl outer shelf (50-80 m, sand)",offshore
-PS_mackerel,Mackerel/scad purse seine,offshore
-PS_anchovy,Light-luring anchovy/small-pelagic purse seine,offshore
+"metier","tactic","ground","cost"
+"SSF_crab","Crab gillnet and trap","coastal",2627.2
+"SSF_shrimp","Shrimp trammel and gillnet","coastal",2038.5
+"SSF_pelagic_gillnet","Encircling and drift gillnet","coastal",4698.6
+"SSF_hook_trap","Hook and line, fish trap","coastal",2218.8
+"SSF_cephalopod","Cephalopod trap and jig","coastal",2835
+"TR_inner","Trawl inner shelf (15-30 m, mud)","offshore",3616.2
+"TR_mid","Trawl mid shelf (30-50 m)","offshore",4263.4
+"TR_outer","Trawl outer shelf (50-80 m, sand)","offshore",2348.7
+"PS_mackerel","Mackerel/scad purse seine","offshore",2108.3
+"PS_anchovy","Light-luring anchovy/small-pelagic purse seine","offshore",5018.3

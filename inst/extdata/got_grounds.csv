@@ -1,0 +1,11 @@
+metier,depth_min,depth_max,substrate
+SSF_crab,0,15,mud;sand
+SSF_shrimp,0,15,mud;sand
+SSF_pelagic_gillnet,0,15,
+SSF_hook_trap,0,15,hard;sand
+SSF_cephalopod,0,15,
+TR_inner,15,30,mud;sand
+TR_mid,30,50,mud;sand
+TR_outer,50,80,mud;sand
+PS_mackerel,20,80,
+PS_anchovy,5,40,

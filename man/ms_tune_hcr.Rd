@@ -21,10 +21,13 @@ ms_tune_hcr(
   Blim = 0.25,
   assess_cv = 0.2,
   max_change = Inf,
+  Emin = 0.1,
   assessed = NULL,
   assign = NULL,
   complexes = NULL,
   complex_index = "biomass",
+  aggregate = "weighted",
+  own_q = 0.5,
   ...
 )
 }
@@ -43,13 +46,14 @@ or c(worst_P_assessed = 0.05) (only the assessed stocks)}
 
 \item{objective}{perf_rows() column to maximise ("yield" or "profit")}
 
-\item{E_ref}{reference days by segment (the caps the rule scales)}
+\item{E_ref}{reference days by segment (the caps the rule scales), e.g.
+the safeguarded-MMSY effort from ms_optimise() or the status-quo days}
 
 \item{B_init, E_init}{initial biomass and days (the status quo).}
 
 \item{nsim, years, eval_years, seed}{simulations, years, years evaluated, seed.}
 
-\item{Blim, assess_cv, max_change, complexes, complex_index, assign}{passed to \code{\link[=hcr_effort]{hcr_effort()}}.}
+\item{Blim, assess_cv, max_change, Emin, complexes, complex_index, assign, aggregate, own_q}{passed to \code{\link[=hcr_effort]{hcr_effort()}}.}
 
 \item{assessed}{stocks with an assessment (default all)}
 

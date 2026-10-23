@@ -27,7 +27,8 @@
 #' @param hcr_lag years between the data a rule sees and the year its advice applies
 #'   (default 2: data of year y - 2, assessed in y - 1, advice for y). Before the
 #'   projection the data years are taken to be the initial state.
-#' @param B_init  n x S initial biomass (default K)
+#' @param B_init  initial biomass (n x S, or one value per stock); default
+#'   `sys$dep_init * K` (the system's starting depletion, 1 if not set)
 #' @param E_init  initial effort by segment (vector of length G or n x G; default the caps)
 #' @param proc_cv process error CV at the median r (JABBA form: the whole
 #'   process equation is multiplied by exp(eta), eta ~ N(-sigma^2/2, sigma^2))
@@ -77,7 +78,7 @@
 #'   Default `NULL`: hard without process error (equilibrium and tuning),
 #'   p = 8 with process error (stochastic runs).
 #' @param keep    "final" (equilibrium summaries) or "all" (trajectories)
-#' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, and the system.
+#' @return An object of class `ms_sim`: arrays `B`, `C`, `F` (years x rows x stocks), `E_metier`, `E_seg_metier`, `E_seg`, matrices `revenue`, `profit`, the system, and `init` (the year-0 biomass and days, rows x stocks / segments).
 #' @export
 ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
                         behaviour = c("dynamic", "fixed"),
@@ -101,8 +102,13 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
   K <- matrix(sys$K, n, S, byrow = TRUE); r <- matrix(sys$r, n, S, byrow = TRUE)
   price <- sys$price; Q <- sys$Q; tQ <- t(Q)
   cost_m <- matrix(sys$cost, n, M, byrow = TRUE)
-  B <- B_init %||% K
-  E_seg <- if (is.null(E_init)) caps else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
+  B <- if (is.null(B_init)) K * matrix(sys$dep_init %||% 1, n, S, byrow = TRUE)
+       else matrix(B_init, n, S, byrow = is.null(dim(B_init)))
+  # with a rule, the starting days are not clipped to the caps: the rule phases the move
+  # from the current days to its reference (e.g. status quo -> MMSY effort)
+  E_seg <- if (is.null(E_init)) caps else if (!is.null(hcr)) matrix(E_init, n, G, byrow = is.null(dim(E_init)))
+           else pmin(caps, matrix(E_init, n, G, byrow = is.null(dim(E_init))))
+  init <- list(B = B, E_seg = E_seg)                 # year-0 state (for plots of projections)
   open_fun <- if (is.function(open)) open else function(y) open
   F_cap <- rep_len(F_cap, sys$S)
   h_cap <- F_cap * sys$r / 2                  # cap on the annual harvest rate h = 1 - exp(-F)
@@ -149,7 +155,8 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       # a rule returns multipliers on the caps (n x G), or list(mult, open) where
       # open (n x M, 0-1) is the share of each metier's ground/season left open
       Bbuf <- c(list(B), Bbuf)[seq_len(hcr_lag + 1)]
-      ctl <- hcr(list(B = Bbuf[[hcr_lag + 1]], K = K, year = y, sys = sys, idx = idx, nd = nd, lag = hcr_lag))
+      ctl <- hcr(list(B = Bbuf[[hcr_lag + 1]], K = K, year = y, sys = sys, idx = idx, nd = nd, lag = hcr_lag,
+                      E = E_seg, caps = caps))
       if (is.list(ctl)) {
         if (!is.null(ctl$mult)) E_cap_y <- caps * ctl$mult
         if (!is.null(ctl$open)) opm <- opm * ctl$open
@@ -218,7 +225,10 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
       Bk[keep_idx, , ] <- B; Ck[keep_idx, , ] <- C_y; Fk[keep_idx, , ] <- F_y; Ek[keep_idx, , ] <- Em_y; Egk[keep_idx, , , ] <- Eg_y
       Rk[keep_idx, ] <- revenue; Pk[keep_idx, ] <- revenue - costs; Esk[keep_idx, , ] <- E_seg
     }
-    B <- pmax((B + r * B * (1 - B / K) - C_y) * pe, 1e-6 * K)     # JABBA-type process error
+    # JABBA-type process error, with JABBA's floor on the surplus-production update (0.005 K):
+    # for fast stocks (r > 1) a shock above K makes the logistic update negative (overshoot);
+    # the floor keeps the stock from being absorbed at zero
+    B <- pmax(B + r * B * (1 - B / K) - C_y, 0.005 * K) * pe
     # entry / exit below the cap
     if (phi > 0) {
       for (g in seq_len(G)) {
@@ -247,7 +257,7 @@ ms_simulate <- function(sys, caps, years = 100, gamma = 1.5,
     }
   }
   out <- list(B = Bk, C = Ck, F = Fk, E_metier = Ek, E_seg_metier = Egk, E_seg = Esk, revenue = Rk, profit = Pk,
-              caps = caps, sys = sys,
+              caps = caps, sys = sys, init = init,
               settings = list(gamma = gamma, behaviour = behaviour, info = info, phi = phi,
                               years = years, proc_cv = proc_cv))
   class(out) <- "ms_sim"

@@ -1,0 +1,15 @@
+---
+title: "How mmsyFM works"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{How mmsyFM works}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This guide describes the model, the calibration of a system and the
+management analyses. The same text is the **Guide** tab of the app
+(`run_app()`). For a worked example see `vignette("mmsyFM")`.
+
+```{r, child = "../inst/guide/how-it-works.md"}
+```

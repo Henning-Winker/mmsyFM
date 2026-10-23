@@ -18,8 +18,9 @@ ms_system(
 \item{species}{data frame, one row per stock, with columns \code{species},
 \code{r}, \code{K} and \code{price}; optional \code{code} (short label), \code{group},
 \code{season_amp} (0 = resident, 1 = absent at the low point),
-\code{season_peak} (month of highest availability) and \code{F_cap} (cap on
-realised F in units of Fmsy, see \code{\link[=ms_simulate]{ms_simulate()}}).}
+\code{season_peak} (month of highest availability), \code{F_cap} (cap on
+realised F in units of Fmsy, see \code{\link[=ms_simulate]{ms_simulate()}}) and \code{dep_init}
+(starting B/K of simulations, default 1; set by \code{\link[=ms_condition]{ms_condition()}}).}
 
 \item{metiers}{data frame, one row per métier, with column \code{metier};
 optional \code{tactic}, \code{ground} and \code{cost} (cost per day of a vessel with
@@ -36,8 +37,9 @@ column and one column per stock.}
 (on home métiers, default 1), \code{efficiency_away} (default \code{efficiency}),
 \code{cost_multiplier} (daily cost relative to a vessel of efficiency 1,
 default \code{efficiency}), \code{vessel_cv} (spread of vessel efficiency within
-the segment, default 0.25) and \code{share_target} (target share of days,
-used by \code{\link[=ms_tune]{ms_tune()}}).}
+the segment, default 0.25), \code{share_target} (target share of days,
+used by \code{\link[=ms_tune]{ms_tune()}}) and \code{capacity} (registered days, the default fleet
+capacity of the segment, e.g. for the app).}
 
 \item{cost_share}{used when \code{metiers} has no \code{cost} column.}
 
