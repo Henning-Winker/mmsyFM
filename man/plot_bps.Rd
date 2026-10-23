@@ -8,7 +8,7 @@ plot_bps(
   perf,
   statistics = NULL,
   biol = "All",
-  target = c(BBmsy = 1, FFmsy = 1, CMSY = 1, PB80 = 0.5),
+  target = c(BBmsy = 0.8, FFmsy = 1, CMSY = 1, PB80 = 0.5),
   limit = c(PBlim = 0.05, PanyBlim = 0.05),
   ncol = 3
 )
@@ -23,7 +23,8 @@ stock codes (one row of panels per stock).}
 
 \item{target, limit}{named vectors of reference lines by statistic (green
 and red dashed lines), drawn for the statistics shown. Defaults: targets
-B/Bmsy = 1, F/Fmsy = 1, Catch/MSY = 1 and P(B > 0.8 Bmsy) = 0.5; limits
+B/Bmsy = 0.8 (the FAO threshold for overfished stocks), F/Fmsy = 1,
+Catch/MSY = 1 and P(B > 0.8 Bmsy) = 0.5; limits
 P(B < Blim) = 0.05 and P(any B < Blim) = 0.05. \code{NULL} draws none.}
 
 \item{ncol}{columns of panels (single unit).}
