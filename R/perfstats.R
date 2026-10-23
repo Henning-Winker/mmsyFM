@@ -184,11 +184,15 @@ summ_perf <- function(perf, statistics, biol, probs = c(0.1, 0.9)) {
 #' @param biol a single unit (`"All"`, a segment or a stock code) or several
 #'   stock codes (one row of panels per stock).
 #' @param target,limit named vectors of reference lines by statistic (green
-#'   and red dashed lines).
+#'   and red dashed lines), drawn for the statistics shown. Defaults: targets
+#'   B/Bmsy = 1, F/Fmsy = 1, Catch/MSY = 1 and P(B > 0.8 Bmsy) = 0.5; limits
+#'   P(B < Blim) = 0.05 and P(any B < Blim) = 0.05. `NULL` draws none.
 #' @param ncol columns of panels (single unit).
 #' @return A ggplot.
 #' @export
-plot_bps <- function(perf, statistics = NULL, biol = "All", target = NULL, limit = NULL, ncol = 3) {
+plot_bps <- function(perf, statistics = NULL, biol = "All",
+                     target = c(BBmsy = 1, FFmsy = 1, CMSY = 1, PB80 = 0.5),
+                     limit = c(PBlim = 0.05, PanyBlim = 0.05), ncol = 3) {
   d <- as.data.frame(perf)
   d <- d[as.character(d$biol) %in% biol, , drop = FALSE]
   if (!is.null(statistics)) d <- d[d$statistic %in% statistics, , drop = FALSE]

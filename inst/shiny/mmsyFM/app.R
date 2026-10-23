@@ -454,11 +454,9 @@ server <- function(input, output, session) {
   output$hs_quilt <- renderPlot(plot_quilt(perf(), sys_stats), res = 100)
   output$hs_quilt_stocks <- renderPlot(plot_quilt(perf(), layout = "stocks", statistic = input$hs_qstat,
     risk = if (input$hs_qstat %in% c("PBpa", "PBlim")) input$hs_qrisk), res = 100)
-  output$hs_bps <- renderPlot(plot_bps(perf(), c("C", "Profit", "Days", "AAVC", "NBpa", "PanyBlim"),
-    limit = c(PanyBlim = 0.05)), res = 100)
+  output$hs_bps <- renderPlot(plot_bps(perf(), c("C", "Profit", "Days", "AAVC", "NBpa", "PanyBlim")), res = 100)
   output$hs_bps_stock <- renderPlot({ req(input$hs_bstock)
-    plot_bps(perf(), c("BBmsy", "FFmsy", "CMSY", "PBlim", "PB80"), biol = input$hs_bstock,
-             target = c(BBmsy = 1, FFmsy = 1, CMSY = 1), limit = c(PBlim = 0.05)) }, res = 100)
+    plot_bps(perf(), c("BBmsy", "FFmsy", "CMSY", "PBlim", "PB80"), biol = input$hs_bstock) }, res = 100)
   output$hs_to <- renderPlot(plot_tradeoffs(perf(), x = input$hs_tox,
     y = setdiff(c("C", "NBpa", "PanyBlim", "Profit", "AAVC", "minBBmsy"), input$hs_tox)), res = 100)
   output$hs_perf <- renderTable(ms_perf_table(perf(), sys_stats), striped = TRUE)
