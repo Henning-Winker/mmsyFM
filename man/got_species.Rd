@@ -2,7 +2,7 @@
 % Please edit documentation in R/presets.R
 \name{got_species}
 \alias{got_species}
-\title{Gulf of Thailand species groups (mse.SEA input)}
+\title{Gulf of Thailand species groups (mmsyapp input)}
 \usage{
 got_species()
 }
@@ -10,7 +10,7 @@ got_species()
 A data frame.
 }
 \description{
-The 18 species groups of the FAO RAP mse.SEA application for the Gulf of
+The 18 species groups of the multispecies MSY app (mmsyapp; Amoroso, Pons and Sharma) for the Gulf of
 Thailand: K, r, 2024 depletion (\code{Dep_ini}, B/K), a placeholder
 catchability \code{q} and a group label. This is the starting point for a
 Gulf of Thailand system (trawl, purse seine and small-scale segments);

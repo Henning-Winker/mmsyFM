@@ -24,7 +24,8 @@
 #' @param upper   upper bound of each cap
 #' @param species names of the stocks under the safeguard (default all)
 #' @param min_share viability floor: every segment's cap must be at least this
-#'   share of the total cap (e.g. 0.2)
+#'   share of the total cap (e.g. 0.2). Applies to caps by segment only (with
+#'   `levers = "total"` the split is fixed by `ratio`).
 #' @param ...     passed to ms_simulate() (gamma, behaviour, phi, open, ...)
 #' @return list: caps, summary row, B/Bmsy and F/Fmsy, effort by segment and
 #'   metier, the binding stock(s), and the search history
@@ -36,6 +37,9 @@ ms_optimise <- function(sys, objective = c("yield", "revenue", "profit"),
                         years = 150, ...) {
   objective <- match.arg(objective)
   seg <- names(sys$segments)
+  # with one global cap the split across segments is fixed (ratio): a viability floor
+  # cannot be met by optimising and would only admit zero effort, so it does not apply
+  if (identical(levers, "total")) min_share <- 0
   d <- if (identical(levers, "total")) 1 else length(levers)
   n <- n %||% c(41, 19, 11)[min(d, 3)]
   lo <- rep(0, d); hi <- rep(log1p(upper), d)
@@ -66,7 +70,11 @@ ms_optimise <- function(sys, objective = c("yield", "revenue", "profit"),
     step <- (hi - lo) / (n - 1)
     lo <- pmax(0, X[i, ] - 2 * step); hi <- pmin(log1p(upper), X[i, ] + 2 * step)
   }
-  if (is.null(best)) return(list(feasible = FALSE, history = do.call(rbind, hist)))
+  if (is.null(best)) return(list(feasible = FALSE, history = do.call(rbind, hist),
+                                 reason = "no caps keep every constrained stock at or above Bpa"))
+  if (sum(best$caps) <= 0)
+    return(list(feasible = FALSE, history = do.call(rbind, hist),
+                reason = "only zero effort meets the constraints (e.g. a viability floor above a segment's share)"))
   # rerun the optimum to keep effort by segment and metier
   x <- ms_simulate(sys, matrix(best$caps, 1), years = years, ...)
   best$E_seg <- setNames(colMeans(x$E_seg[, 1, , drop = FALSE][, 1, ]), seg)

@@ -40,7 +40,8 @@ agent: mixed = 40)}
 \item{species}{names of the stocks under the safeguard (default all)}
 
 \item{min_share}{viability floor: every segment's cap must be at least this
-share of the total cap (e.g. 0.2)}
+share of the total cap (e.g. 0.2). Applies to caps by segment only (with
+\code{levers = "total"} the split is fixed by \code{ratio}).}
 
 \item{n, zoom}{grid points per dimension and number of zoom steps.}
 

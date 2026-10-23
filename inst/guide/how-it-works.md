@@ -11,7 +11,7 @@ profit. It is used to
   metiers (all year or by month), and feedback harvest control rules (HCRs)
   under assessment error, implementation error, process error and data lags.
 
-It replaces the shared-q model of mse.SEA, in which every stock receives a
+It extends the shared-q model of the multispecies MSY app (mmsyapp), in which every stock receives a
 fixed share of a single effort pool, with a model of fleet behaviour.
 
 The model has four layers: **stocks**, **fleet**, **behaviour** and
@@ -135,7 +135,7 @@ A system is calibrated in three steps, normally once per case study:
 `ms_yield_curve()` scales the status-quo days of all segments by a common
 factor and runs each to equilibrium. The app compares four treatments:
 
-* **Shared q (mse.SEA):** one effort pool and a fixed catchability per
+* **Shared q:** one effort pool and a fixed catchability per
   stock, calibrated to reproduce the status-quo F of every stock. Effort
   raises F on all stocks in the same proportions; there is no behaviour.
   Solved analytically (`ms_shared_q_curve()`).

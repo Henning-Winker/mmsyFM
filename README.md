@@ -6,7 +6,7 @@
 
 **Multispecies MSY fleet model.** Simulates mixed fisheries in which fleet segments allocate their fishing days across métiers by expected profit. It finds safeguarded multispecies MSY, and tunes and tests effort- and closure-based harvest strategies under uncertainty. A Shiny app for participatory workshops is in development (branch `dev-shiny`).
 
-`mmsyFM` grew out of the logbook simulator of [cpueTargeting](https://github.com/Henning-Winker/cpueTargeting) and replaces the shared-q model of the FAO RAP multispecies app (mse.SEA). In a shared-q model every effort rule moves along one line, because F_i / F_j = q_i / q_j is fixed. Here fishers choose where to fish.
+`mmsyFM` grew out of the logbook simulator of [cpueTargeting](https://github.com/Henning-Winker/cpueTargeting) and extends the shared-q model of the multispecies MSY app [mmsyapp](https://maitepons.shinyapps.io/mmsyapp/) (see *Authors and origins*). In a shared-q model every effort rule moves along one line, because F_i / F_j = q_i / q_j is fixed. Here fishers choose where to fish.
 
 ## Installation
 
@@ -78,7 +78,7 @@ See `vignette("scenario-setup")` for a worked example (Gulf of Thailand) and `vi
 
 mmsyFM combines two lines of work, and we want to be transparent about where its parts come from.
 
-**1. The multispecies MSY app (mmsyapp).** The starting point for the management questions is the multispecies MSY Shiny application by Ricardo Amoroso, Maite Pons and Rishi Sharma ([mmsyapp](https://maitepons.shinyapps.io/mmsyapp/); referred to in this package as *mse.SEA*). It represents a mixed fishery as Schaefer surplus-production stocks fished by one pool of effort with a fixed catchability per stock (shared q), and was applied to species groups of the Gulf of Thailand. mmsyFM keeps:
+**1. The multispecies MSY app (mmsyapp).** The starting point for the management questions is the multispecies MSY Shiny application by Ricardo Amoroso, Maite Pons and Rishi Sharma ([mmsyapp](https://maitepons.shinyapps.io/mmsyapp/)). It represents a mixed fishery as Schaefer surplus-production stocks fished by one pool of effort with a fixed catchability per stock (shared q), and was applied to species groups of the Gulf of Thailand. mmsyFM keeps:
 
 * the multispecies MSY framing: yield over effort with a safeguard for every stock;
 * the shared-q model, as one of the treatments compared in the yield curves (`ms_shared_q_curve()`);

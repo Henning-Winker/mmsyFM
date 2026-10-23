@@ -20,7 +20,7 @@ is described in `vignette("how-it-works")`.
 
 > **The Gulf of Thailand system is a draft.** Prices, gear overlaps, habitat
 > preferences and costs are indicative; the 2024 depletions are those of the
-> mse.SEA application.
+> multispecies MSY app (mmsyapp).
 
 ```{r}
 library(mmsyFM)
@@ -43,10 +43,10 @@ species <- ext("got_species.csv")
 species[, c("species", "code", "group", "r", "K", "price", "F_cap", "dep_init", "dep_2024")]
 ```
 
-* `r` and `K` are the 18 mse.SEA groups; anchovies and sardines were added.
+* `r` and `K` are the 18 mmsyapp groups; anchovies and sardines were added.
 * `F_cap = 1.95` (units of Fmsy) is the persistence floor: no stock settles
   below 0.05 Bmsy (`vignette("how-it-works")`, section 2).
-* `dep_2024` is the mse.SEA 2024 depletion (B/K), the target of the
+* `dep_2024` is the mmsyapp 2024 depletion (B/K), the target of the
   calibration in section 4; `dep_init` is the starting depletion of
   simulations, written by that calibration.
 
@@ -219,7 +219,7 @@ chk
 
 All stocks with a 2024 value are within about 0.01 B/Bmsy of it, except
 croakers, which sit at the F cap (0.07 for a target of 0.12). Shrimp is held
-at the 1.5 limit (mse.SEA has 0.97 B/K).
+at the 1.5 limit (mmsyapp has 0.97 B/K).
 
 ```{r, fig.height = 5}
 plot_kobe(list("Status quo (2024)" = sq), sys)

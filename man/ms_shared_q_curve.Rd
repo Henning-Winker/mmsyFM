@@ -2,7 +2,7 @@
 % Please edit documentation in R/equilibrium.R
 \name{ms_shared_q_curve}
 \alias{ms_shared_q_curve}
-\title{Shared-q yield curve (the mse.SEA model)}
+\title{Shared-q yield curve (the mmsyapp model)}
 \usage{
 ms_shared_q_curve(
   sys,

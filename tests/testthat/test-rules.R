@@ -57,3 +57,13 @@ test_that("value-weighted status, triggers by segment and a phased move to the r
   r <- hcr_effort(sys)
   expect_true(all(colSums(attr(r, "own")) > 0))                     # every segment answers for some stock
 })
+
+test_that("viability floor: ignored for a global cap; an impossible floor gives no optimum, not zero effort", {
+  sys <- atlantic_system()
+  g <- ms_optimise(sys, levers = "total", ratio = c(0.6, 0.35, 0.05), upper = 3000, min_share = 0.2,
+                   n = 9, zoom = 1, years = 60, gamma = 1.5)
+  expect_true(g$feasible); expect_gt(sum(g$caps), 0)
+  z <- ms_optimise(sys, levers = names(sys$segments), upper = 1000, min_share = 0.4,
+                   n = 4, zoom = 1, years = 60, gamma = 1.5)
+  expect_false(z$feasible); expect_match(z$reason, "zero effort")
+})

@@ -135,7 +135,7 @@ ms_yield_curve <- function(sys, E_ref, mult = c(0, 10^seq(-1.5, log10(8), length
   out
 }
 
-#' Shared-q yield curve (the mse.SEA model)
+#' Shared-q yield curve (the mmsyapp model)
 #'
 #' The classical multispecies model with one effort and a fixed catchability
 #' vector, calibrated so that it reproduces the fishing mortality of a
