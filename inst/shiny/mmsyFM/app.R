@@ -114,10 +114,14 @@ ui <- navbarPage(
     sidebarLayout(
       sidebarPanel(width = 3,
         selectInput("preset", info("preset", "System"), c("Atlantic example" = "atlantic",
-          "Gulf of Thailand (draft)" = "got", "Upload tables" = "upload")),
+          "Gulf of Thailand (draft)" = "got", "Adriatic demersal (draft)" = "adriatic", "Upload tables" = "upload")),
         conditionalPanel("input.preset == 'got'", p(class = "note draft",
           "Draft: 20 stock groups (from mmsyapp), trawl / purse seine / small-scale with coastal zoning.",
           "Prices, gear overlaps and costs are indicative; the stocks are conditioned on the 2024 depletions where available.")),
+        conditionalPanel("input.preset == 'adriatic'", p(class = "note draft",
+          "Draft: GFCM GSAs 17-18 demersal management plan. 10 stocks (hake, red mullet, sole, rose shrimp, Norway lobster in 4 units, mantis shrimp, cuttlefish),",
+          "trawl (5 grounds incl. Pomo Pits and GSA 18 slope), rapido, nets and pots, two longline fleets.",
+          "Conditioned on the assessed F/Fmsy (2023-2024); projections start from the assessed biomass. Prices and costs are indicative.")),
         conditionalPanel("input.preset == 'upload'",
           fileInput("f_species", "species.csv"), fileInput("f_metiers", "metiers.csv"),
           fileInput("f_q", "catchability.csv"), fileInput("f_segments", "segments.csv"),
@@ -302,7 +306,8 @@ server <- function(input, output, session) {
   # capacity, so a tuned system is kept)
   observeEvent(list(input$preset, input$f_species, input$f_metiers, input$f_q, input$f_segments,
                     input$season_amp), {
-    sys <- if (input$preset == "atlantic") atlantic_system() else if (input$preset == "got") got_system_draft() else {
+    sys <- if (input$preset == "atlantic") atlantic_system() else if (input$preset == "got") got_system_draft() else
+      if (input$preset == "adriatic") adriatic_system_draft() else {
       req(input$f_species, input$f_metiers, input$f_q, input$f_segments)
       rd <- function(f) utils::read.csv(f$datapath, check.names = FALSE, stringsAsFactors = FALSE)
       tryCatch(ms_system(rd(input$f_species), rd(input$f_metiers), rd(input$f_q), rd(input$f_segments),

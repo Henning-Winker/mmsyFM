@@ -1,5 +1,17 @@
 # mmsyFM 0.1.0
 
+* Adriatic demersal draft (`adriatic_system_draft()`, preset in the app):
+  GFCM GSAs 17-18, ten stocks incl. four Norway lobster functional units,
+  five fleets on five areas; built in `data-raw/adriatic_build.R`.
+* `ms_condition(on = "F")` conditions on assessed F/Fmsy; species column
+  `dep_now` and `ms_start()` start projections from the assessed biomass
+  (option "Start from" in the app).
+* Management plans: species columns `plan` and `unit`, segment column
+  `plan`; `hcr_effort(segments =)`; app rules "HCR plan stocks" and "HCR
+  plan stocks, pooled units" (default when a system defines a plan).
+* `ms_landscape(distribution =)`: stock distribution by cell, e.g. from
+  species distribution models.
+
 * Assessment strategies in the app: rules with indicator species, species
   complexes (pooled biomass or CPUE) and nominal assignment of stocks to
   fleets, compared with the all-stocks rule; defaults from

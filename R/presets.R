@@ -84,3 +84,44 @@ got_species <- function() {
 got_system_draft <- function() {
   read_ms_system(system.file("extdata", package = "mmsyFM"), "got")
 }
+
+#' Adriatic Sea demersal fisheries system (draft)
+#'
+#' **Draft, indicative only.** The demersal fisheries of the Adriatic Sea
+#' (GFCM geographical subareas 17 and 18) under the multiannual management
+#' plan (Recommendation GFCM/43/2019/5):
+#'
+#' * ten stocks: European hake, red mullet, common sole, deep-water rose
+#'   shrimp (Adriatic part of GSAs 17-20) and Norway lobster in four
+#'   functional units (17C Pomo, 17NW, 17NE, 18), the key stocks of the
+#'   plan (`plan = 1`; the Norway lobster units share the management unit
+#'   `NEP`), plus spottail mantis shrimp and common cuttlefish (assessed, not
+#'   in the plan);
+#' * five areas: western (Italian) and eastern (Croatian) GSA 17, the
+#'   Jabuka/Pomo Pits, the GSA 18 shelf and the upper slope of the South
+#'   Adriatic Pit;
+#' * twelve metiers in five segments: bottom otter trawl (five grounds),
+#'   beam trawl "rapido" for sole, gillnets/trammel nets/pots/creels, and
+#'   bottom longlines in GSA 18 (deep) and eastern GSA 17. Trawl and beam
+#'   trawl are regulated by the plan's effort regime (segment `plan = 1`).
+#'
+#' r and K, catches by fleet and the latest status (B/Btarget, F/Ftarget,
+#' reference years 2023-2024) come from GFCM stock assessments (WGSAD 2024,
+#' SRC-AS 2025, stock assessment forms and benchmarks); the distribution of
+#' stocks across areas follows Panzeri et al. (2024, Fish and Fisheries
+#' 25:187-204). Catchability is the catch per day relative to biomass; daily
+#' costs by metier and catchability by stock were calibrated so that the
+#' status quo reproduces the observed days by metier and the assessed
+#' F/Fmsy. Projections can start from the assessed biomass (`dep_now`, see
+#' [ms_start()]). The build script is `data-raw/adriatic_build.R` in the
+#' source repository; `adriatic_catch.csv` and `adriatic_distribution.csv`
+#' in `extdata` hold the catches by metier and the distribution by area.
+#'
+#' @return An `ms_system`.
+#' @export
+#' @examples
+#' sys <- adriatic_system_draft()
+#' sys$capacity
+adriatic_system_draft <- function() {
+  read_ms_system(system.file("extdata", package = "mmsyFM"), "adriatic")
+}

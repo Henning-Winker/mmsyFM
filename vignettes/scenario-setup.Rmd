@@ -1,8 +1,8 @@
 ---
-title: "Setting up the case studies: Atlantic and Gulf of Thailand"
+title: "Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Setting up the case studies: Atlantic and Gulf of Thailand}
+  %\VignetteIndexEntry{Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,7 +16,9 @@ built and tuned, as a guideline for setting up your own: the input tables,
 how catchability was derived, the fleet settings that shape behaviour, and
 the calibration of the starting point. Part A covers the Atlantic example
 (`atlantic_system()`), Part B the Gulf of Thailand draft
-(`got_system_draft()`), and Part C summarises the steps as a checklist. The
+(`got_system_draft()`), Part C the Adriatic demersal draft
+(`adriatic_system_draft()`), conditioned on assessed fishing mortality, and
+Part D summarises the steps as a checklist. The
 model itself is described in `vignette("how-it-works")`, and the analysis
 functions in `vignette("mmsyFM")`.
 
@@ -334,7 +336,161 @@ round(colMeans(x$E_metier[, 1, ]))
 ```
 
 
-## Part C: checklist for your own system
+## Part C: the Adriatic demersal fisheries draft
+
+The Adriatic system represents the demersal fisheries of GFCM geographical
+subareas 17 and 18 under the multiannual management plan
+(Recommendation GFCM/43/2019/5). Unlike the Gulf of Thailand, every stock
+has an assessment with both biomass and fishing mortality, and several are
+far from equilibrium: rebuilding after a decade of effort reductions (hake),
+or depleted with low fishing mortality (Norway lobster in 17NW and GSA 18,
+cuttlefish). The system is therefore **conditioned on the assessed
+F/Fmsy**, and projections **start from the assessed biomass**.
+
+> **The Adriatic system is a draft.** Catches by fleet, status and
+> reference points come from GFCM assessments; prices, costs, the split of
+> catches between areas and the days by metier are indicative.
+
+### C1. Sources
+
+* **Status** (B/Btarget, F/Ftarget): SRC-AS 2025 (WGSAD December 2024),
+  stock assessment forms for reference year 2024 (cuttlefish, mantis shrimp,
+  deep-water rose shrimp) and the Norway lobster form (four functional
+  units, JABBA).
+* **Catches by fleet and country**: the benchmarks of hake and red mullet
+  (2024), the stock assessment forms, and the SoMFI 2025 time series for the
+  2023 totals.
+* **Where stocks live**: the ensemble species distribution models of
+  Panzeri et al. (2024, *Fish and Fisheries* 25:187-204), from the MEDITS and
+  SOLEMON surveys: hake adults on the eastern side and the South Adriatic
+  Pit, Norway lobster in the Pomo Pits, Kvarner and the South Adriatic Pit,
+  sole, mantis shrimp and cuttlefish in the northern Adriatic (Po delta,
+  Istria), rose shrimp in the south and deep.
+* **Fleets and effort**: the effort regime of the plan (trawl and beam
+  trawl days) and FAO SoMFI 2025 (1 378 authorised trawlers).
+
+### C2. Stocks
+
+```{r}
+sp <- ext("adriatic_species.csv")
+sp[, c("code", "group", "r", "K", "price", "catch", "FFmsy_now", "BBmsy_now", "plan", "unit")]
+```
+
+* `r`: twice the Fmsy of the production models for the Norway lobster
+  units (Schaefer equivalent of the JABBA Fox model) and the rose shrimp
+  (SPiCT r prior 1.5); assessment priors and life history for the others.
+* `K` follows from the catch and the status: in the Schaefer model
+  C = F B with F = (F/Fmsy) r/2 and B = (B/Bmsy) K/2, so
+  K = 4 C / (r F/Fmsy B/Bmsy).
+* The F and B targets of the assessments (F35, F40, Fmsy; B35, B40, Bmsy)
+  are used as proxies of Fmsy and Bmsy.
+* `plan = 1`: key stocks of the management plan. The four Norway lobster
+  functional units share the management unit `NEP` (one stock in the plan),
+  although their status differs widely (17C at 1.65 Bmsy, 17NW and 18 at
+  0.4).
+* `dep_now` (B/K) is the assessed biomass, the start of projections.
+
+### C3. Areas, metiers and fleets
+
+Five areas: western (Italian) and eastern (Croatian) GSA 17, the
+Jabuka/Pomo Pits, the GSA 18 shelf and the upper slope of the South
+Adriatic Pit. The stock distributions by area, read from the hot-spot maps
+of Panzeri et al. (2024):
+
+```{r}
+ext("adriatic_distribution.csv")
+```
+
+Twelve metiers in five segments; the observed catches (t) by metier and
+the status-quo days:
+
+```{r}
+ext("adriatic_metiers.csv")[, c("metier", "tactic")]
+ext("adriatic_catch.csv")
+ext("adriatic_segments.csv")[, c("segment", "plan", "capacity", "cost_multiplier", "home")]
+```
+
+Trawl (`OTB`) and beam trawl (`TBB_sole`) are regulated by the plan's
+effort regime (`plan = 1`); gillnets, pots and longlines are not.
+
+### C4. Catchability and calibration
+
+Catchability is the catch per day relative to biomass,
+q = C / (days x B), with B from the assessed status and K. The catches of
+each country and gear were allocated to the areas with the distributions
+above (e.g. Italian GSA 17 trawl catches of hake between the western side
+and the Pomo Pits). The calibration then iterates two steps until the
+status quo (open access within the effort regime, `gamma = 1.5`) reproduces
+the data:
+
+1. each metier's daily cost, so that the days by metier match the observed
+   days;
+2. each stock's catchability column, so that its F/Fmsy matches the
+   assessment (as `ms_condition(on = "F")`).
+
+The full script is `data-raw/adriatic_build.R` in the source repository.
+
+```{r, fig.height = 4}
+sys <- adriatic_system_draft()
+plot_catchability(sys)
+```
+
+#### Checking the result
+
+```{r}
+sq <- ms_status_quo(sys, capacity = sys$capacity, gamma = 1.5, years = 300)
+data.frame(stock = sys$code, F_assessed = sp$FFmsy_now, F_model = round(sq$FFmsy, 2),
+           B_assessed = sp$BBmsy_now, B_equilibrium = round(sq$BBmsy, 2))
+```
+
+The model reproduces the assessed F/Fmsy. The equilibrium biomass at
+today's F differs from the assessed biomass where the stocks are not in
+equilibrium: hake is rebuilding (0.48 now, about 0.9 at today's F); Norway
+lobster in 17NW and GSA 18 and cuttlefish are depleted with low fishing
+mortality, consistent with low recruitment or productivity (the cuttlefish
+assessment flags a low-productivity regime). In the model these stocks
+recover at today's F; how fast, and whether they do, is the main
+uncertainty of this draft (a lower r for these stocks is a sensitivity).
+
+```{r, fig.height = 5}
+plot_kobe(list("Equilibrium at today's F" = sq), sys)
+```
+
+### C5. Management in the app
+
+With the preset "Adriatic demersal (draft)", the harvest strategy tab
+starts projections from the assessed biomass and compares by default:
+
+* **No control**: every fleet at its capacity;
+* **HCR plan stocks**: the rule regulates trawl and beam trawl only and
+  responds to the plan's key stocks, with the four Norway lobster units
+  assessed and managed separately;
+* **HCR plan stocks, pooled units**: the same with Norway lobster assessed
+  as one stock, as in the plan; the healthy Pomo unit can then hide the
+  depleted ones.
+
+Spatial measures are set as metier closures:
+
+* **Otranto Channel FRA** (Recommendation GFCM/47/2024/6): the buffer zone
+  (400-800 m) is closed to trawl, set nets, longlines and traps from
+  September to November: close `OTB_18slope` and `LLS_18deep` in months 9-11
+  for the share of the slope ground in the buffer (about 0.1);
+* **a Norway lobster recovery area on the South Adriatic Pit** (SRC-AS 2025:
+  spatial or temporal measures to protect recruitment hot spots and berried
+  females): close a share of `OTB_18slope`, e.g. 0.3 all year;
+* **the Po delta nursery** of sole and mantis shrimp (Panzeri et al. 2024):
+  close a share of `TBB_17` and `GTR_17NW` in the recruitment season;
+* the **Jabuka/Pomo Pits FRA** is in force in the status quo (`OTB_Pomo` is
+  fishing outside its core zone).
+
+For example, the Otranto buffer closure in code:
+
+```{r}
+otranto <- ms_closure(sys, c("OTB_18slope", "LLS_18deep"), months = 9:11, share = 0.1)
+round(otranto[9:12, c("OTB_18slope", "LLS_18deep")], 2)
+```
+
+## Part D: checklist for your own system
 
 1. **Stocks.** Collect r, K (or MSY and Bmsy), relative prices and, if
    relevant, seasonal availability; decide the F cap (persistence floor,
@@ -350,7 +506,10 @@ round(colMeans(x$E_metier[, 1, ]))
 5. **Behaviour.** Choose `gamma` (profit preference; 1.5 is a moderate
    default) and check where the days go.
 6. **Calibrate.** `ms_tune()` for the day shares (with a status target),
-   then `ms_condition()` if the status of each stock is known.
+   then `ms_condition()` if the status of each stock is known: on B/Bmsy
+   when stocks are near equilibrium, on F/Fmsy (`on = "F"`) when they are
+   not, with the assessed biomass as the start of projections (`dep_now`,
+   `ms_start()`).
 7. **Check.** Shares of days, B/Bmsy against the targets, every metier
    fished, the Kobe plot (stocks on the line B/Bmsy + F/Fmsy = 2), and the
    choke stock.
