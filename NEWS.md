@@ -1,5 +1,10 @@
 # mmsyFM 0.1.0
 
+* Assessment strategies in the app: rules with indicator species, species
+  complexes (pooled biomass or CPUE) and nominal assignment of stocks to
+  fleets, compared with the all-stocks rule; defaults from
+  `ms_assessment_presets()`.
+
 * First version, ported from the dev-mmsy prototype in cpueTargeting and
   combined with the multispecies MSY app (mmsyapp).
 * Systems: `ms_system()` from four tables; habitat landscape for

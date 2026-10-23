@@ -174,7 +174,28 @@ runs <- list(
 Other options of `hcr_effort()`: triggers by segment (`Btrig = c(pelagic =
 0.8)`), a closure triggered by a stock (`close = "Dentex dentex"`), indicator
 species (`assessed`), species complexes (`complexes`) and the nominal
-assignment of stocks to fleets (`assign`).
+assignment of stocks to fleets (`assign`). `ms_assessment_presets()` gives
+starting values for these from the system:
+
+```{r}
+pre <- ms_assessment_presets(sys)
+pre$indicators
+names(pre$complexes)
+wl <- function(...) rule(aggregate = "min", ...)        # weakest link
+runs_assess <- list(
+  "All stocks"         = runs[["HCR weakest link"]],
+  "Indicator species"  = run(Em, wl(assessed = pre$indicators)),
+  "Species complexes"  = run(Em, wl(complexes = pre$complexes)),
+  "Nominal assignment" = run(Em, wl(assign = pre$assign)))
+ms_perf_table(ms_perf(runs_assess, years = 21:40), c("C", "Days", "NBpa", "minBBmsy"))
+```
+
+With the weakest link, assessing every stock cuts the most days and keeps
+the most depleted stock highest. The demersal complex hides its depleted
+members (Dentex is pooled with healthier stocks), so the rule rarely cuts.
+Indicator species and nominal assignment fall in between. With the
+value-weighted rule the differences are small here, because the healthy,
+valuable stocks dominate each fleet's status.
 
 ## 7. Performance statistics
 

@@ -56,14 +56,15 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="mmsyfm-010">mmsyFM 0.1.0<a class="anchor" aria-label="anchor" href="#mmsyfm-010"></a></h2>
-<ul><li>First version, ported from the dev-mmsy prototype in cpueTargeting and combined with the multispecies MSY app (mmsyapp).</li>
-<li>Systems: <code><a href="../reference/ms_system.html">ms_system()</a></code> from four tables; habitat landscape for catchability (<code><a href="../reference/ms_landscape.html">ms_landscape()</a></code>); Atlantic example and Gulf of Thailand draft (<code><a href="../reference/atlantic_system.html">atlantic_system()</a></code>, <code><a href="../reference/got_system_draft.html">got_system_draft()</a></code>).</li>
-<li>Calibration: <code><a href="../reference/ms_tune.html">ms_tune()</a></code> (fleet composition at open access) and <code><a href="../reference/ms_condition.html">ms_condition()</a></code> (stock status, e.g. 2024 depletions).</li>
-<li>Stocks: discrete Schaefer with exact F/Fmsy (harvest-rate ratio), F cap (persistence floor), JABBA-type process error scaled by r and depletion, and JABBA’s floor in the process equation.</li>
-<li>Equilibrium analyses: yield curves, shared-q comparison, safeguarded MMSY (<code><a href="../reference/ms_optimise.html">ms_optimise()</a></code>; total yield, revenue, profit or the catch of one stock).</li>
-<li>Harvest strategies: <code><a href="../reference/hcr_effort.html">hcr_effort()</a></code> with full effort at the MMSY days, value-weighted or weakest-link status, triggers by segment, minimum effort, phased annual changes, stock-triggered closures, indicator species, complexes and nominal assignment; fixed metier closures (<code><a href="../reference/ms_closure.html">ms_closure()</a></code>); trigger tuning (<code><a href="../reference/ms_tune_hcr.html">ms_tune_hcr()</a></code>).</li>
-<li>Performance statistics in the mseviz format (<code><a href="../reference/ms_perf.html">ms_perf()</a></code>), boxplots, trade-offs and colour-coded decision tables (<code><a href="../reference/plot_quilt.html">plot_quilt()</a></code>).</li>
-<li>Shiny app (<code><a href="../reference/run_app.html">run_app()</a></code>) with a guide and a management-options tab.</li>
+<ul><li><p>Assessment strategies in the app: rules with indicator species, species complexes (pooled biomass or CPUE) and nominal assignment of stocks to fleets, compared with the all-stocks rule; defaults from <code><a href="../reference/ms_assessment_presets.html">ms_assessment_presets()</a></code>.</p></li>
+<li><p>First version, ported from the dev-mmsy prototype in cpueTargeting and combined with the multispecies MSY app (mmsyapp).</p></li>
+<li><p>Systems: <code><a href="../reference/ms_system.html">ms_system()</a></code> from four tables; habitat landscape for catchability (<code><a href="../reference/ms_landscape.html">ms_landscape()</a></code>); Atlantic example and Gulf of Thailand draft (<code><a href="../reference/atlantic_system.html">atlantic_system()</a></code>, <code><a href="../reference/got_system_draft.html">got_system_draft()</a></code>).</p></li>
+<li><p>Calibration: <code><a href="../reference/ms_tune.html">ms_tune()</a></code> (fleet composition at open access) and <code><a href="../reference/ms_condition.html">ms_condition()</a></code> (stock status, e.g. 2024 depletions).</p></li>
+<li><p>Stocks: discrete Schaefer with exact F/Fmsy (harvest-rate ratio), F cap (persistence floor), JABBA-type process error scaled by r and depletion, and JABBA’s floor in the process equation.</p></li>
+<li><p>Equilibrium analyses: yield curves, shared-q comparison, safeguarded MMSY (<code><a href="../reference/ms_optimise.html">ms_optimise()</a></code>; total yield, revenue, profit or the catch of one stock).</p></li>
+<li><p>Harvest strategies: <code><a href="../reference/hcr_effort.html">hcr_effort()</a></code> with full effort at the MMSY days, value-weighted or weakest-link status, triggers by segment, minimum effort, phased annual changes, stock-triggered closures, indicator species, complexes and nominal assignment; fixed metier closures (<code><a href="../reference/ms_closure.html">ms_closure()</a></code>); trigger tuning (<code><a href="../reference/ms_tune_hcr.html">ms_tune_hcr()</a></code>).</p></li>
+<li><p>Performance statistics in the mseviz format (<code><a href="../reference/ms_perf.html">ms_perf()</a></code>), boxplots, trade-offs and colour-coded decision tables (<code><a href="../reference/plot_quilt.html">plot_quilt()</a></code>).</p></li>
+<li><p>Shiny app (<code><a href="../reference/run_app.html">run_app()</a></code>) with a guide and a management-options tab.</p></li>
 </ul></div>
   </main></div>
 

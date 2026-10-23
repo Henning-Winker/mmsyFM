@@ -124,8 +124,17 @@ stocks are assessed. The rule can only respond to what is assessed.
   it. Simple to administer, but the other fleets are not constrained and the
   burden falls on the assigned fleet.
 
-(Indicator species, complexes and assignment are available in the package,
-`hcr_effort()`, and will be added to the app.)
+**In the app** (tab 5), tick the rules "HCR, indicator species", "HCR,
+species complexes" or "HCR, nominal assignment" next to the "HCR,
+value-weighted" rule (all stocks assessed) to see what each assessment
+strategy costs or risks, with the same random draws. Defaults come from the
+system and can be edited: one indicator per fleet segment (the stock of
+highest value to it), the species groups as complexes (pooled biomass or
+pooled CPUE), and each stock assigned to the segment for whose fishery it
+matters most. The differences show most with the weakest link, where a
+complex or a missing assessment can hide the depleted stock that would
+otherwise cut effort. In the package: `hcr_effort(assessed =, complexes =, assign =)`
+and `ms_assessment_presets()`.
 
 ---
 

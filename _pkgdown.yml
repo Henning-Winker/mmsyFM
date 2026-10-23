@@ -48,6 +48,7 @@ reference:
 - title: Harvest strategies
   contents:
   - hcr_effort
+  - ms_assessment_presets
   - ms_tune_hcr
   - proc_sd_from_r
   - relsig_jabba

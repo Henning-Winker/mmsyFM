@@ -77,3 +77,16 @@ test_that("ms_optimise can maximise the catch of one stock", {
   expect_gte(s$catch[[match(k, sys$code)]], y$catch[[match(k, sys$code)]] - 1e-6)
   expect_error(ms_optimise(sys, "nonsense"), "objective")
 })
+
+test_that("assessment presets give indicators, complexes and an assignment", {
+  sys <- atlantic_system()
+  p <- ms_assessment_presets(sys)
+  expect_true(all(p$indicators %in% sys$species))
+  expect_equal(length(p$indicators), length(unique(p$indicators)))
+  expect_false(anyDuplicated(unlist(p$complexes)) > 0)
+  expect_setequal(unlist(p$assign), sys$species)
+  r <- hcr_effort(sys, assessed = p$indicators, complexes = NULL)
+  expect_true(all(rowSums(attr(r, "own")[!sys$species %in% p$indicators, , drop = FALSE]) == 0))
+  r2 <- hcr_effort(sys, complexes = p$complexes)
+  expect_equal(names(attr(r2, "units"))[seq_along(p$complexes)], names(p$complexes))
+})

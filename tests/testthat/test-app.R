@@ -51,5 +51,13 @@ test_that("the app compares several rules, with full effort from the safeguarded
                       hs_mclose_months = c(2, 5), hs_mclose_share = 1, run_hs = 2)
     expect_equal(names(hs()), c("No control", "Metier closures only", "HCR + metier closures"))
     expect_type(output$hs_perf, "character")
+    # assessment strategies (defaults from ms_assessment_presets(), then edited)
+    session$setInputs(hs_rules = c("hcr_w", "hcr_ind", "hcr_cplx", "hcr_asg"), hs_cindex = "cpue", hs_assess_agg = "weighted", run_hs = 3)
+    expect_equal(names(hs()), c("HCR value-weighted", "HCR indicator species", "HCR species complexes",
+                                "HCR nominal assignment"))
+    session$setInputs(hs_ind = rv$sys$species[1], cplx_1 = rv$sys$species[1:3], cplx_2 = character(0),
+                      cplx_3 = character(0), hs_rules = c("hcr_ind", "hcr_cplx"), run_hs = 4)
+    expect_equal(length(hs()), 2)
+    expect_type(output$hs_perf, "character")
   })
 })
