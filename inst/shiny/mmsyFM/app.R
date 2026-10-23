@@ -72,8 +72,8 @@ tips <- list(
 info <- function(id, label) tagList(label, tags$span(class = "info", `data-toggle` = "tooltip",
   `data-placement` = "right", `data-html` = "true", title = tips[[id]], HTML("&#9432;")))
 
-guide_html <- function() {
-  f <- system.file("guide", "how-it-works.md", package = "mmsyFM")
+guide_html <- function(file = "how-it-works.md") {
+  f <- system.file("guide", file, package = "mmsyFM")
   if (!nzchar(f) || !requireNamespace("commonmark", quietly = TRUE))
     return(p("The guide needs the commonmark package; see also vignette('how-it-works', 'mmsyFM')."))
   md <- paste(readLines(f, encoding = "UTF-8"), collapse = "\n")
@@ -243,6 +243,10 @@ ui <- navbarPage(
         p(class = "note", "Uses the rule and uncertainty settings of tab 5. Each grid point sees the same random errors."),
         actionButton("run_tu", "Tune", class = "btn-primary")),
       mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table")))),
+
+  # ---- Management options ---------------------------------------------------
+  tabPanel("Management options",
+    fluidRow(column(8, offset = 1, class = "guide", guide_html("management-options.md")))),
 
   # ---- Guide -------------------------------------------------------------------
   tabPanel("Guide",
