@@ -98,15 +98,6 @@ ui <- navbarPage(
      .tooltip-inner { max-width: 340px; text-align: left; font-size: 13px; padding: 8px 10px; }")),
     tags$script(HTML("$(function() { $('body').tooltip({ selector: '[data-toggle=\\'tooltip\\']', container: 'body' }); });"))),
 
-  # ---- Guide -------------------------------------------------------------------
-  tabPanel("Guide",
-    tags$script(type = "text/x-mathjax-config",
-      "MathJax.Hub.Config({ tex2jax: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']], processEscapes: true } });"),
-    withMathJax(),
-    tags$script(HTML("$(document).on('shown.bs.tab', 'a[data-value=\\'Guide\\']', function() {
-      if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]); });")),
-    fluidRow(column(8, offset = 1, class = "guide", guide_html()))),
-
   # ---- 1. Set-up -------------------------------------------------------------
   tabPanel("1. Set-up",
     sidebarLayout(
@@ -243,7 +234,16 @@ ui <- navbarPage(
         numericInput("tu_nsim", info("tu_nsim", "Simulations per grid point"), 50, 10, 500, 10),
         p(class = "note", "Uses the rule and uncertainty settings of tab 5. Each grid point sees the same random errors."),
         actionButton("run_tu", "Tune", class = "btn-primary")),
-      mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table"))))
+      mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table")))),
+
+  # ---- Guide -------------------------------------------------------------------
+  tabPanel("Guide",
+    tags$script(type = "text/x-mathjax-config",
+      "MathJax.Hub.Config({ tex2jax: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']], processEscapes: true } });"),
+    withMathJax(),
+    tags$script(HTML("$(document).on('shown.bs.tab', 'a[data-value=\\'Guide\\']', function() {
+      if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]); });")),
+    fluidRow(column(8, offset = 1, class = "guide", guide_html())))
 )
 
 server <- function(input, output, session) {
