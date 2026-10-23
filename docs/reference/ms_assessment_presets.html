@@ -25,7 +25,7 @@ hcr_effort(), derived from the system:"><!-- mathjax --><script src="file:///usr
 <li class="nav-item dropdown">
   <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
   <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic and Gulf of Thailand</a>
+    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic</a>
     <div class="dropdown-divider"></div>
     <a class="dropdown-item" href="../articles/index.html">More articles...</a>
   </div>
@@ -82,7 +82,8 @@ hcr_effort(), derived from the system:"><!-- mathjax --><script src="file:///usr
     
 
 <p>A list with <code>indicators</code> (stock names), <code>complexes</code> (named list of
-stock names) and <code>assign</code> (named list segment -&gt; stock names).</p>
+stock names), <code>assign</code> (named list segment -&gt; stock names), and
+<code>plan</code>, <code>plan_units</code> and <code>plan_segments</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -92,6 +93,11 @@ potential value to that segment (catchability on its metiers x price x
 K) among the stocks it catches as a main fishery, without repeats;</p></li>
 <li><p><code>complexes</code>: the species <code>group</code>s of the system with two or more
 stocks (stocks alone in their group stay single units);</p></li>
+<li><p><code>plan</code>: the key stocks of the management plan (species column <code>plan</code>),
+<code>plan_units</code> the management units with more than one stock (species
+column <code>unit</code>, e.g. the Norway lobster functional units as one stock)
+and <code>plan_segments</code> the segments regulated by the plan (segment column
+<code>plan</code>); <code>NULL</code> when the system does not define them;</p></li>
 <li><p><code>assign</code>: each stock assigned to the segment for whose fishery it
 matters most (its largest share of the segment's potential value), its
 "main" fleet.</p></li>
@@ -102,6 +108,15 @@ matters most (its largest share of the segment's potential value), its
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">ms_assessment_presets</span><span class="op">(</span><span class="fu"><a href="atlantic_system.html">atlantic_system</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $indicators</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Dentex dentex"      "Pagellus bogaraveo" "Thunnus alalunga"  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $plan</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $plan_units</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $plan_segments</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $complexes</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $complexes$demersal</span>

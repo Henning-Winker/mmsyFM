@@ -23,7 +23,7 @@
 <li class="nav-item dropdown">
   <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-articles">Articles</a>
   <div class="dropdown-menu" aria-labelledby="dropdown-articles">
-    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic and Gulf of Thailand</a>
+    <a class="dropdown-item" href="../articles/scenario-setup.html">Setting up the case studies: Atlantic, Gulf of Thailand and Adriatic</a>
     <div class="dropdown-divider"></div>
     <a class="dropdown-item" href="../articles/index.html">More articles...</a>
   </div>
@@ -78,6 +78,7 @@
 <span>  complexes <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  complex_index <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"biomass"</span>, <span class="st">"cpue"</span><span class="op">)</span>,</span>
 <span>  aggregate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"weighted"</span>, <span class="st">"min"</span><span class="op">)</span>,</span>
+<span>  segments <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -145,6 +146,12 @@ each unit's potential revenue for the segment (catchability on its
 metiers x price x K), so the stocks that make up its fishery drive its
 effort; or <code>"min"</code>, the weakest link (the most depleted unit sets the
 segment's effort), a special, most precautionary case.</p></dd>
+
+
+<dt>segments</dt>
+<dd><p>the segments the rule regulates (default all); the
+others keep their reference days (e.g. fleets outside a management
+plan's effort regime).</p></dd>
 
 
 <dt>seed</dt>

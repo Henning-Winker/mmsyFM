@@ -34,6 +34,9 @@
     <loc>https://henning-winker.github.io/mmsyFM/news/index.html</loc>
   </url>
   <url>
+    <loc>https://henning-winker.github.io/mmsyFM/reference/adriatic_system_draft.html</loc>
+  </url>
+  <url>
     <loc>https://henning-winker.github.io/mmsyFM/reference/allocate_effort.html</loc>
   </url>
   <url>
@@ -86,6 +89,9 @@
   </url>
   <url>
     <loc>https://henning-winker.github.io/mmsyFM/reference/ms_simulate.html</loc>
+  </url>
+  <url>
+    <loc>https://henning-winker.github.io/mmsyFM/reference/ms_start.html</loc>
   </url>
   <url>
     <loc>https://henning-winker.github.io/mmsyFM/reference/ms_statistics.html</loc>
