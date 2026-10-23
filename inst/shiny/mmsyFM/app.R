@@ -42,6 +42,9 @@ tips <- list(
   hs_rules = "Each ticked rule is a run with the same random draws (process, assessment and implementation error), shown in its own colour.<br><b>No control</b>: the fleet at capacity, limited only by profitability.<br><b>Fixed MMSY effort</b>: each segment capped at its safeguarded-MMSY days, no feedback.<br><b>HCR</b>: each segment's days ramp from the minimum effort at Blim to its full effort at the trigger. <b>Value-weighted</b>: the status is the mean B/Bmsy of the stocks the segment fishes, weighted by their value to it. <b>Weakest link</b>: the most depleted stock decides (most precautionary). <b>Full effort</b> = the MMSY days, or today's days. <b>+ closure</b>: the stock chosen below is protected by closing the metiers that drive it.",
   hs_trig_seg = "Set a different trigger for each segment, e.g. a higher trigger for the purse seine fishing short-lived small pelagics.",
   hs_bycatch = "Off (default): a segment answers only for stocks it catches as a main fishery (catchability at least half the stock's highest). On: by-catch counts too, so more stocks can cut a segment's days.",
+  hs_qstat = "Statistic shown for every stock (rows) and rule (columns). Colours rank the rules within each stock, or use the risk limit for probabilities of being below Bpa or Blim.",
+  hs_qrisk = "For P(B < Bpa) and P(B < Blim): green at or below this limit, amber up to twice the limit, red above.",
+  hs_bstock = "Stocks shown in the lower boxplots (one row per stock). Default: the three most depleted at the status quo.",
   hs_maxchange = "Largest change in a segment's days from one year to the next, relative to last year (0.2 = at most 20% up or down), as for TAC changes: a cut from the status quo to the 10% floor takes about 10 years. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
@@ -195,8 +198,28 @@ ui <- navbarPage(
         numericInput("hs_nsim", info("hs_nsim", "Simulations"), 100, 10, 1000, 10),
         numericInput("hs_years", info("hs_years", "Years"), 40, 10, 100, 5),
         actionButton("run_hs", "Run", class = "btn-primary")),
-      mainPanel(width = 9, tableOutput("hs_perf"),
-                plotOutput("hs_status", height = "420px"), plotOutput("hs_fleet", height = "300px")))),
+      mainPanel(width = 9,
+        tabsetPanel(id = "hs_tabs",
+          tabPanel("Decision table",
+            p(class = "note", "Medians (means for probabilities) over the last 20 years. Colours rank the rules within each column: green best, red worst; days have no preferred direction (grey)."),
+            plotOutput("hs_quilt", height = "300px"),
+            fluidRow(
+              column(4, selectInput("hs_qstat", info("hs_qstat", "By stock: statistic"),
+                c("P(B < Bpa)" = "PBpa", "P(B < Blim)" = "PBlim", "B/Bmsy" = "BBmsy", "F/Fmsy" = "FFmsy",
+                  "Catch/MSY" = "CMSY", "P(B > 0.8 Bmsy)" = "PB80", "P(Kobe green)" = "green"))),
+              column(4, numericInput("hs_qrisk", info("hs_qrisk", "Risk limit for probabilities"), 0.1, 0, 1, 0.05))),
+            plotOutput("hs_quilt_stocks", height = "560px")),
+          tabPanel("Boxplots",
+            selectInput("hs_bstock", info("hs_bstock", "Stocks (rows of panels)"), NULL, multiple = TRUE),
+            plotOutput("hs_bps", height = "460px"), plotOutput("hs_bps_stock", height = "620px")),
+          tabPanel("Trade-offs",
+            selectInput("hs_tox", "x axis", c("Catch" = "C", "Revenue" = "Rev", "Profit" = "Profit", "Days" = "Days")),
+            plotOutput("hs_to", height = "560px")),
+          tabPanel("Projections",
+            plotOutput("hs_status", height = "520px"), plotOutput("hs_fleet", height = "300px")),
+          tabPanel("Table",
+            tableOutput("hs_perf"),
+            downloadButton("hs_download", "Download statistics (CSV, mseviz format)")))))),
 
   # ---- 6. Tuning -------------------------------------------------------------
   tabPanel("6. Tune triggers",
@@ -423,14 +446,24 @@ server <- function(input, output, session) {
     })
     out
   })
-  output$hs_perf <- renderTable({
-    r <- hs(); ny <- input$hs_years
-    p <- ms_performance(r, years = max(1, ny - 19):ny)
-    data.frame(Run = p$run, Yield = fmt(p$yield), Profit = fmt(p$profit), Days = fmt(p$days),
-               `P(any stock < Blim)` = sprintf("%.2f", p$P_any_below_Blim),
-               `Worst stock P(B < Bpa)` = sprintf("%.2f", p$worst_P_below_Bpa), `Worst stock` = p$worst_stock,
-               `Effort variability` = sprintf("%.2f", p$AAV_effort), check.names = FALSE)
-  }, striped = TRUE)
+  perf <- reactive({ ny <- input$hs_years; ms_perf(hs(), years = max(1, ny - 19):ny) })
+  sys_stats <- c("C", "Rev", "Profit", "Days", "AAVC", "NBpa", "PanyBlim", "minBBmsy")
+  observe({ sys <- rv$sys; req(sys)
+    updateSelectInput(session, "hs_bstock", choices = setNames(sys$code, paste(sys$code, "-", sys$species)),
+                      selected = head(sys$code[order(rv$sq$BBmsy)], 3)) })
+  output$hs_quilt <- renderPlot(plot_quilt(perf(), sys_stats), res = 100)
+  output$hs_quilt_stocks <- renderPlot(plot_quilt(perf(), layout = "stocks", statistic = input$hs_qstat,
+    risk = if (input$hs_qstat %in% c("PBpa", "PBlim")) input$hs_qrisk), res = 100)
+  output$hs_bps <- renderPlot(plot_bps(perf(), c("C", "Profit", "Days", "AAVC", "NBpa", "PanyBlim"),
+    limit = c(PanyBlim = 0.05)), res = 100)
+  output$hs_bps_stock <- renderPlot({ req(input$hs_bstock)
+    plot_bps(perf(), c("BBmsy", "FFmsy", "CMSY", "PBlim", "PB80"), biol = input$hs_bstock,
+             target = c(BBmsy = 1, FFmsy = 1, CMSY = 1), limit = c(PBlim = 0.05)) }, res = 100)
+  output$hs_to <- renderPlot(plot_tradeoffs(perf(), x = input$hs_tox,
+    y = setdiff(c("C", "NBpa", "PanyBlim", "Profit", "AAVC", "minBBmsy"), input$hs_tox)), res = 100)
+  output$hs_perf <- renderTable(ms_perf_table(perf(), sys_stats), striped = TRUE)
+  output$hs_download <- downloadHandler(filename = function() "mmsyFM_performance.csv",
+    content = function(file) utils::write.csv(perf(), file, row.names = FALSE))
   output$hs_status <- renderPlot(plot_projection(hs(), "BBmsy"), res = 100)
   output$hs_fleet <- renderPlot(plot_fleet(hs()), res = 100)
 

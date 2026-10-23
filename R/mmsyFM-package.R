@@ -29,6 +29,8 @@
 #'   scale_x_log10 scale_y_continuous scale_x_continuous scale_shape_manual coord_cartesian
 #'   labs theme theme_minimal element_text element_line element_blank margin rel unit
 #'   expansion %+replace% geom_tile scale_fill_gradient scale_linetype_identity
+#'   geom_boxplot geom_linerange element_rect label_parsed labeller scale_fill_gradientn
+#'   scale_x_discrete facet_grid
 NULL
 
 #' @importFrom stats rnorm pnorm median quantile sd setNames
@@ -39,4 +41,5 @@ NULL
 utils::globalVariables(c(
   "E", "value", "scenario", "yield", "BBmsy", "FFmsy", "code", "group", "year", "med",
   "lo", "hi", "run", "share", "metier", "treatment", "point", "min_BBmsy",
-  "n_below_Bpa", "species", "lt", "y", "panel", "b", "depth"))
+  "n_below_Bpa", "species", "lt", "y", "panel", "b", "depth", "mp", "ymin", "lower", "middle", "upper", "ymax", "mid",
+  "xlo", "xhi", "score", "label", "x", "name"))

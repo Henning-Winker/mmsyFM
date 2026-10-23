@@ -257,11 +257,37 @@ limit, by default: the worst stock below Bpa at most 5% of the time.
 
 ## 9. Performance statistics
 
-`ms_performance()` summarises stochastic runs over the evaluation years
-(default the last 20): mean yield, profit and days; the probability that any
-stock is below Blim or Bpa in a year; the worst stock's probability of being
-below Bpa (and which stock it is); the median of the lowest B/Bmsy; and the
-median average annual variation of total days.
+`ms_perf()` computes performance statistics of a set of runs (one per rule
+or management procedure) over the evaluation years (default the last 20),
+per iteration, and returns them as a long `data.table` in the format of the
+FLR package **mseviz** (`mp`, `biol`, `statistic`, `name`, `desc`, `year`,
+`iter`, `data`), so they can also be passed to `mseviz::plotBPs()`,
+`mseviz::plotTOs()` or `mseviz::perfTable()`.
+
+* **By stock** (`biol` = stock code): median B/Bmsy and F/Fmsy, catch/MSY,
+  P(B < Blim), P(B < Bpa), P(B > 0.8 Bmsy) and P(Kobe green).
+* **By segment**: mean days fished.
+* **System** (`biol = "All"`): total catch, revenue, profit, days, catch
+  relative to the sum of single-stock MSYs, the average annual variation of
+  catch and of days, the mean number of stocks below Bpa, P(any stock below
+  Blim) and the lowest B/Bmsy reached.
+
+Probabilities are the share of years (per iteration) and are summarised by
+their mean over iterations. Presentation:
+
+* `plot_bps()`: boxplots by rule (10th-90th percentiles), probabilities as
+  points, with target and limit lines (the style of `mseviz::plotBPs()`);
+  for the system or for selected stocks (one row of panels per stock);
+* `plot_tradeoffs()`: medians and 10th-90th percentile ranges of each
+  statistic against catch (or revenue, profit, days);
+* `plot_quilt()`: colour-coded decision tables, either rules x statistics
+  (green = best, red = worst within each statistic, by its preferred
+  direction) or stocks x rules for one statistic, with optional absolute
+  classes for probabilities (green at or below a risk limit, amber up to
+  twice the limit, red above);
+* `ms_perf_table()`: medians with 10th-90th percentiles as a table.
+
+The earlier summary `ms_performance()` (one row per rule) is kept.
 
 ## 10. Function reference
 
@@ -272,6 +298,7 @@ median average annual variation of total days.
 | Simulate | `ms_simulate()`, `ms_summary()` |
 | Equilibrium analyses | `ms_yield_curve()`, `ms_shared_q_curve()`, `ms_optimise()` |
 | Harvest strategies | `hcr_effort()`, `ms_tune_hcr()`, `ms_performance()` |
+| Performance statistics | `ms_perf()`, `ms_statistics()`, `ms_perf_table()`, `plot_bps()`, `plot_tradeoffs()`, `plot_quilt()` |
 | Uncertainty helpers | `proc_sd_from_r()`, `relsig_jabba()`, `ffmsy()` |
 | Plots | `plot_kobe()`, `plot_yield_curves()`, `plot_projection()`, `plot_fleet()`, `plot_catchability()`, `plot_landscape()` |
 | App | `run_app()` |
