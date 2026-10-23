@@ -1,8 +1,8 @@
 ---
-title: "Setting up a simulation scenario: Gulf of Thailand"
+title: "Setting up the case studies: Atlantic and Gulf of Thailand"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Setting up a simulation scenario: Gulf of Thailand}
+  %\VignetteIndexEntry{Setting up the case studies: Atlantic and Gulf of Thailand}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,16 +11,14 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7.5, fig.height = 4.5, dpi = 96)
 ```
 
-This vignette builds a simulation scenario from scratch, using the Gulf of
-Thailand draft (`got_system_draft()`) as the example: the four input tables,
-two ways to derive catchability (an expert overlap matrix or a habitat
-landscape), the fleet settings that shape behaviour, and the calibration of
-the starting point to known fleet shares and stock status. The model itself
-is described in `vignette("how-it-works")`.
-
-> **The Gulf of Thailand system is a draft.** Prices, gear overlaps, habitat
-> preferences and costs are indicative; the 2024 depletions are those of the
-> multispecies MSY app (mmsyapp).
+This vignette documents how the two example systems of the package were
+built and tuned, as a guideline for setting up your own: the input tables,
+how catchability was derived, the fleet settings that shape behaviour, and
+the calibration of the starting point. Part A covers the Atlantic example
+(`atlantic_system()`), Part B the Gulf of Thailand draft
+(`got_system_draft()`), and Part C summarises the steps as a checklist. The
+model itself is described in `vignette("how-it-works")`, and the analysis
+functions in `vignette("mmsyFM")`.
 
 ```{r}
 library(mmsyFM)
@@ -28,12 +26,114 @@ library(ggplot2)
 ext <- function(f) read.csv(system.file("extdata", f, package = "mmsyFM"), check.names = FALSE)
 ```
 
-## 1. The four tables
+## Part A: the Atlantic example
+
+A generic north-east Atlantic mixed hook-and-line fishery with ten stocks:
+six demersal (from reef fish to hake) and four pelagic (two of them seasonal
+migrants). It is a conceptual system for exploring mixed-fishery management,
+not an assessment of real stocks.
+
+### A1. Stocks
+
+```{r}
+ext("atlantic_species.csv")
+```
+
+Growth rates (`r`), carrying capacities (`K`) and relative prices are
+indicative. Pelagic stocks have seasonal availability (`season_amp`, peak
+month `season_peak`), so their catch rates vary through the year.
+
+### A2. Metiers and catchability: from a habitat landscape
+
+The metiers are three tactics (reef handline, sediment longline, pelagic
+troll) on two grounds (shallow and deep, split at 300 m), i.e. six metiers.
+Their catchability was derived once from the spatial multispecies simulator
+of the cpueTargeting package, which re-implements the simulator of Thorson
+et al. (2017), itself generalising Ono et al. (2015):
+
+* a habitat landscape of depth, reef patches and sea-surface temperature on
+  a grid; each species has a depth, substrate (reef or sediment) and, for
+  pelagics, temperature preference, giving its spatial distribution at K;
+* each metier fishes the cells of its ground (shallow or deep, reef or
+  sediment, or the water column for the troll) with a gear selectivity for
+  each species;
+* catchability = selectivity x the mean share of the stock's K per cell of
+  the ground, with fishing spread evenly over the ground.
+
+Two settings were changed from the logbook simulator to give a balanced
+system: the selectivity of the pelagic troll for *Seriola dumerili* was
+lowered from 0.8 to 0.4 (with 0.8, the reef and troll by-catch drove it
+down under open access), and mixed vessels fish at 0.75 of the specialists'
+efficiency. The resulting matrix is stored as a table, so the package does
+not depend on cpueTargeting; `ms_landscape()` (Part B) is the stand-alone
+equivalent of this step.
+
+```{r, fig.height = 3.5}
+sys_a <- atlantic_system()
+plot_catchability(sys_a)
+```
+
+*Dentex dentex* lives on a narrow reef habitat and has the highest
+catchability relative to its growth rate: it becomes the choke stock.
+
+### A3. Fleet segments
+
+```{r}
+ext("atlantic_segments.csv")
+```
+
+* **Demersal** and **pelagic** specialists fish 80% of their days on their
+  home metiers (loyalty 0.8) and the rest wherever it pays best.
+* The **mixed** segment is a generalist (loyalty 0) at 0.75 efficiency.
+* Each metier's daily cost is 0.4 of its unfished revenue rate (`cost` in
+  the metier table); the segment multipliers (`cost_multiplier`) are tuned.
+* `vessel_cv = 0.25`: vessel efficiency varies within a segment, so some
+  vessels break even while others stay in port.
+
+### A4. Tuning the status quo
+
+The daily cost multipliers were solved with `ms_tune()` so that the
+open-access equilibrium (capacity 1,000 days per segment, `gamma = 1.5`)
+has 35 / 35 / 30% of the days by segment and the weakest stock at 0.4 Bmsy:
+
+```{r, eval = FALSE}
+sys_a <- ms_tune(sys_a, shares = c(demersal = 0.35, pelagic = 0.35, mixed = 0.30),
+                 status = c(min = 0.4), cap = 1000, gamma = 1.5)
+```
+
+The stored system is the result:
+
+```{r}
+sq_a <- ms_status_quo(sys_a, capacity = 1000, gamma = 1.5, years = 300)
+round(sq_a$E_seg / sum(sq_a$E_seg), 2)
+round(sort(sq_a$BBmsy), 2)
+```
+
+```{r, fig.height = 5}
+plot_kobe(list("Atlantic status quo" = sq_a), sys_a)
+```
+
+At the status quo Dentex, blackspot seabream and *Seriola* are the most
+depleted stocks (about 0.4-0.5 Bmsy), while the fast pelagics are above
+Bmsy.
+
+## Part B: the Gulf of Thailand draft
+
+The Gulf of Thailand system represents the multispecies trawl, purse-seine
+and small-scale fisheries of the Gulf with the 18 species groups of the
+multispecies MSY app (mmsyapp), plus anchovies and sardines. It shows how a
+system is calibrated to the observed status of the stocks.
+
+> **The Gulf of Thailand system is a draft.** Prices, gear overlaps, habitat
+> preferences and costs are indicative; the 2024 depletions are those of the
+> multispecies MSY app (mmsyapp).
+
+### B1. The four tables
 
 A system is built by `ms_system()` from four tables (or read from CSV files
 with `read_ms_system()`).
 
-### Species
+#### Species
 
 One row per stock: growth rate `r`, carrying capacity `K` and a relative
 `price`; optionally seasonality, the F cap and the starting depletion.
@@ -47,10 +147,10 @@ species[, c("species", "code", "group", "r", "K", "price", "F_cap", "dep_init", 
 * `F_cap = 1.95` (units of Fmsy) is the persistence floor: no stock settles
   below 0.05 Bmsy (`vignette("how-it-works")`, section 2).
 * `dep_2024` is the mmsyapp 2024 depletion (B/K), the target of the
-  calibration in section 4; `dep_init` is the starting depletion of
+  calibration in section B4; `dep_init` is the starting depletion of
   simulations, written by that calibration.
 
-### Metiers and segments
+#### Metiers and segments
 
 ```{r}
 ext("got_metiers.csv")[, c("metier", "tactic", "ground")]
@@ -71,24 +171,24 @@ own metiers):
 `capacity` is the registered days of each segment; `share_target` the share
 of days the calibration aims at.
 
-## 2. Catchability
+### B2. Catchability
 
 The catchability matrix (metiers x stocks) says which metiers catch which
 stocks and how strongly. There are two ways to build it.
 
-### Route A: an expert overlap matrix
+#### Route A: an expert overlap matrix
 
 Score each metier-stock pair as main fishery (1), by-catch (0.2) or none
 (0), and scale by r (so a day has a similar F/Fmsy effect on every stock).
 This is how the draft was started; the stored matrix is that start after
-calibration (section 4):
+calibration (section B4):
 
 ```{r, fig.height = 4}
 sys <- got_system_draft()
 plot_catchability(sys)
 ```
 
-### Route B: a habitat landscape
+#### Route B: a habitat landscape
 
 `ms_landscape()` derives catchability from where stocks live and where and
 how metiers fish:
@@ -143,7 +243,7 @@ sys_land
 (Without a `cost` column, each metier's daily cost is 0.4 of its unfished
 revenue rate.)
 
-## 3. Fleet behaviour
+### B3. Fleet behaviour
 
 Two settings shape how the fleet responds:
 
@@ -171,7 +271,7 @@ With `gamma = 0` every metier of a segment gets the same days; with a strong
 preference, small-scale effort concentrates on the shrimp and pelagic gillnet
 tactics, and trawl on the inner shelf.
 
-## 4. Calibrating the starting point
+### B4. Calibrating the starting point
 
 The calibration fixes what is not directly known (daily costs, the level of
 each stock's catchability) so that the open-access equilibrium reproduces
@@ -204,7 +304,7 @@ attr(sys2, "conditioning")            # targets, achieved B/Bmsy and F/Fmsy, q m
 so the scenario can be reloaded with `read_ms_system()` or uploaded in the
 app.
 
-### Checking the result
+#### Checking the result
 
 The stored draft went through these steps (from the expert matrix). Its
 status quo against the 2024 targets:
@@ -233,7 +333,31 @@ x <- ms_simulate(sys, matrix(cap, 1), 200, capacity = matrix(cap, 1), gamma = 1.
 round(colMeans(x$E_metier[, 1, ]))
 ```
 
-## 5. Next steps
+
+## Part C: checklist for your own system
+
+1. **Stocks.** Collect r, K (or MSY and Bmsy), relative prices and, if
+   relevant, seasonal availability; decide the F cap (persistence floor,
+   default none; 1.95 keeps stocks at or above 0.05 Bmsy).
+2. **Metiers.** Define fishing tactics (gear, target) and grounds (depth
+   zones, substrate, coastal zone); one row per tactic x ground.
+3. **Catchability.** Either score an overlap matrix (main fishery,
+   by-catch, none) or describe habitats and grounds for `ms_landscape()`.
+   Only the shape of each stock's column matters at this stage.
+4. **Segments.** Home metiers and loyalty (zoning), efficiency (generalists
+   below specialists), capacity (registered days) and the target share of
+   days.
+5. **Behaviour.** Choose `gamma` (profit preference; 1.5 is a moderate
+   default) and check where the days go.
+6. **Calibrate.** `ms_tune()` for the day shares (with a status target),
+   then `ms_condition()` if the status of each stock is known.
+7. **Check.** Shares of days, B/Bmsy against the targets, every metier
+   fished, the Kobe plot (stocks on the line B/Bmsy + F/Fmsy = 2), and the
+   choke stock.
+8. **Save** with `write_ms_system()` and load with `read_ms_system()` or in
+   the app (upload).
+
+## Next steps
 
 * **Equilibrium analyses**: yield curves (`ms_yield_curve()`,
   `ms_shared_q_curve()`) and the safeguarded MMSY (`ms_optimise()`); see
@@ -244,4 +368,4 @@ round(colMeans(x$E_metier[, 1, ]))
   process, assessment and implementation error; `ms_tune_hcr()` to tune the
   triggers.
 * **The app**: `run_app()`, preset "Gulf of Thailand (draft)", or upload the
-  tables saved in step 3.
+  tables saved in step 3 of B4.
