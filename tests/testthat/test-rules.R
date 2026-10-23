@@ -67,3 +67,13 @@ test_that("viability floor: ignored for a global cap; an impossible floor gives 
                    n = 4, zoom = 1, years = 60, gamma = 1.5)
   expect_false(z$feasible); expect_match(z$reason, "zero effort")
 })
+
+test_that("ms_optimise can maximise the catch of one stock", {
+  sys <- atlantic_system()
+  k <- sys$code[sys$group == "pelagic"][1]
+  y <- ms_optimise(sys, "yield", upper = 1000, n = 5, zoom = 1, years = 60, gamma = 1.5)
+  s <- ms_optimise(sys, k, upper = 1000, n = 5, zoom = 1, years = 60, gamma = 1.5)
+  expect_true(s$feasible); expect_equal(s$objective_stocks, k)
+  expect_gte(s$catch[[match(k, sys$code)]], y$catch[[match(k, sys$code)]] - 1e-6)
+  expect_error(ms_optimise(sys, "nonsense"), "objective")
+})

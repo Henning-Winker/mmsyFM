@@ -32,7 +32,7 @@ tips <- list(
   gamma = "0 = days spread evenly over the metiers, whatever they pay. Higher = days concentrate on the metiers with the best expected profit per day.",
   tune_min = "Target status of the weakest stock at open access (0.05 = the floor set by the F cap; Atlantic example 0.2). Together with the target shares it sets how heavily fished the starting system is. Tuning adjusts the daily cost of each segment until both are met.",
   yc_treat = "<b>Shared q</b>: one effort, fixed catchability, no fleet behaviour.<br><b>Profit-blind</b>: days spread evenly over each segment's metiers.<br><b>Profit-seeking</b>: days follow expected profit.<br><b>+ closure</b>: profit-seeking with the metier below closed all year.<br>Every curve scales the status-quo days of all segments by the same factor and runs to equilibrium.",
-  opt_obj = "What is maximised at equilibrium: <b>yield</b> (total catch), <b>revenue</b> (catch x price) or <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY).",
+  opt_obj = "What is maximised at equilibrium: <b>total yield</b> (total catch), <b>revenue</b> (catch x price), <b>profit</b> (revenue minus fishing costs; usually much lower effort, i.e. MEY), or the <b>catch of one stock</b> (e.g. anchovy). Every stock is still kept at or above Bpa.",
   opt_levers = "<b>One global cap</b>: a single limit on total days, split across segments in their status-quo proportions.<br><b>Cap by segment</b>: a separate days limit for each segment, so cuts can target the fleet that catches the choke stock.",
   opt_minshare = "Used with <b>Cap by segment</b>: every segment keeps at least this share of the total days, so the optimum cannot shut a segment down. The maximum is 1/3 with three segments.",
   opt_bpa = "Safeguard: a solution is accepted only if <b>every</b> stock is at or above this B/Bmsy at equilibrium. The stock at the limit is the choke stock. 0 = plain (unsafeguarded) MMSY.",
@@ -45,6 +45,9 @@ tips <- list(
   hs_qstat = "Statistic shown for every stock (rows) and rule (columns). Colours rank the rules within each stock, or use the risk limit for probabilities of being below Bpa or Blim.",
   hs_qrisk = "For P(B < Bpa) and P(B < Blim): green at or below this limit, amber up to twice the limit, red above.",
   hs_bstock = "Stocks shown in the lower boxplots (one row per stock). Default: the three most depleted at the status quo.",
+  hs_mclose = "Metiers closed by management (fixed, not triggered by stock status), used by the rules 'Metier closures only' and 'HCR + metier closures'. Their days move to the open metiers by expected profit.",
+  hs_mclose_months = "Months of the closure (1 = January). The full range is a year-round closure; e.g. 2 to 5 closes February to May.",
+  hs_mclose_share = "Share of each closed metier's ground closed in those months: 1 = fully closed, 0.5 = half of the ground (an area closure).",
   hs_maxchange = "Largest change in a segment's days from one year to the next, relative to last year (0.2 = at most 20% up or down), as for TAC changes: a cut from the status quo to the 10% floor takes about 10 years. 1 = no limit.",
   hs_lag = "Years between the data and the management year: with 2, the days for year t are set from the stock status assessed for year t-2.",
   hs_assess = "Assessment error: assessed B/Bmsy = true value x lognormal error with this CV.",
@@ -69,8 +72,8 @@ tips <- list(
 info <- function(id, label) tagList(label, tags$span(class = "info", `data-toggle` = "tooltip",
   `data-placement` = "right", `data-html` = "true", title = tips[[id]], HTML("&#9432;")))
 
-guide_html <- function() {
-  f <- system.file("guide", "how-it-works.md", package = "mmsyFM")
+guide_html <- function(file = "how-it-works.md") {
+  f <- system.file("guide", file, package = "mmsyFM")
   if (!nzchar(f) || !requireNamespace("commonmark", quietly = TRUE))
     return(p("The guide needs the commonmark package; see also vignette('how-it-works', 'mmsyFM')."))
   md <- paste(readLines(f, encoding = "UTF-8"), collapse = "\n")
@@ -157,7 +160,7 @@ ui <- navbarPage(
   tabPanel("4. Safeguarded MMSY",
     sidebarLayout(
       sidebarPanel(width = 3,
-        selectInput("opt_obj", info("opt_obj", "Objective"), c("yield", "revenue", "profit")),
+        selectInput("opt_obj", info("opt_obj", "Objective"), c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit")),
         radioButtons("opt_levers", info("opt_levers", "Levers"), c("One global cap" = "total", "Cap by segment" = "segments")),
         p(class = "note", "The viability floor applies only to caps by segment: with one global cap the split across segments is fixed at the status-quo shares."),
         conditionalPanel("input.opt_levers == 'segments'",
@@ -175,10 +178,15 @@ ui <- navbarPage(
         checkboxGroupInput("hs_rules", info("hs_rules", "Rules to compare"),
           c("No control (status-quo days)" = "none", "Fixed MMSY effort" = "mmsy",
             "HCR, value-weighted (full = MMSY)" = "hcr_w", "HCR, weakest link (full = MMSY)" = "hcr_min",
-            "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure (full = MMSY)" = "hcr_close"),
+            "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure for a stock (full = MMSY)" = "hcr_close",
+            "Metier closures only" = "mclose_only", "HCR + metier closures (full = MMSY)" = "mclose_hcr"),
           c("none", "mmsy", "hcr_w", "hcr_min")),
         p(class = "note", "Full effort = the safeguarded-MMSY days from tab 4, with its settings and closures (computed here with defaults if tab 4 has not been run: 1-3 min)."),
         uiOutput("hs_ref"),
+        h5("Metier closures"),
+        uiOutput("hs_mclose_ui"),
+        sliderInput("hs_mclose_months", info("hs_mclose_months", "Closed months"), 1, 12, c(1, 12), 1),
+        sliderInput("hs_mclose_share", info("hs_mclose_share", "Share of the ground closed"), 0.1, 1, 1, 0.05),
         h5("Rule"),
         sliderInput("hs_btrig", info("hs_btrig", "Effort trigger (B/Bmsy)"), 0.3, 1.5, 0.5, 0.05),
         checkboxInput("hs_trig_seg", info("hs_trig_seg", "Triggers by segment"), FALSE),
@@ -235,6 +243,10 @@ ui <- navbarPage(
         p(class = "note", "Uses the rule and uncertainty settings of tab 5. Each grid point sees the same random errors."),
         actionButton("run_tu", "Tune", class = "btn-primary")),
       mainPanel(width = 9, h4("Tuned rule"), tableOutput("tu_best"), h4("Grid"), tableOutput("tu_table")))),
+
+  # ---- Management options ---------------------------------------------------
+  tabPanel("Management options",
+    fluidRow(column(8, offset = 1, class = "guide", guide_html("management-options.md")))),
 
   # ---- Guide -------------------------------------------------------------------
   tabPanel("Guide",
@@ -382,9 +394,16 @@ server <- function(input, output, session) {
                   Bpa = input$opt_bpa, min_share = if (input$opt_levers == "segments") input$opt_minshare else 0, gamma = input$gamma, years = 150,
                   open = as.numeric(!sys$metiers$name %in% input$opt_closed)))
   })
+  # objective choices: the totals and the catch of each stock of the loaded system
+  observe({ sys <- rv$sys; req(sys)
+    updateSelectInput(session, "opt_obj", choices = c("Total yield" = "yield", "Revenue" = "revenue", "Profit" = "profit",
+      setNames(sys$code, paste("Catch:", sys$species))), selected = isolate(input$opt_obj) %||% "yield") })
   output$opt_summary <- renderTable({
     o <- opt(); validate(need(isTRUE(o$feasible), paste0("No safeguarded optimum: ", o$reason %||% "no feasible caps", ".")))
-    rbind(summary_table(rv$sq, "Status quo"), cbind(summary_table(o, "Safeguarded optimum")))
+    tab <- rbind(summary_table(rv$sq, "Status quo"), summary_table(o, "Safeguarded optimum"))
+    for (k in match(o$objective_stocks, rv$sys$code))
+      tab[[paste("Catch of", rv$sys$species[k])]] <- fmt(c(attr(rv$sq$summary, "catch")[1, k], o$catch[[k]]))
+    tab
   }, striped = TRUE)
   output$opt_kobe <- renderPlot({ o <- opt(); req(isTRUE(o$feasible))
     plot_kobe(list("Status quo" = rv$sq, "Safeguarded optimum" = o), rv$sys) }, res = 110)
@@ -401,6 +420,12 @@ server <- function(input, output, session) {
     g <- names(rv$sys$segments)
     setNames(vapply(g, function(x) input[[paste0("trig_", x)]] %||% input$hs_btrig, 0), g)
   })
+  output$hs_mclose_ui <- renderUI(checkboxGroupInput("hs_mclose", info("hs_mclose", "Metiers to close"),
+    req(rv$sys)$metiers$name, inline = TRUE))
+  mclose_open <- function() {
+    validate(need(length(input$hs_mclose) > 0, "Tick at least one metier to close for the metier-closure rules."))
+    ms_closure(rv$sys, input$hs_mclose, seq(input$hs_mclose_months[1], input$hs_mclose_months[2]), input$hs_mclose_share)
+  }
   rule_args <- reactive(list(Btrig = btrig(), Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess, own_q = if (isTRUE(input$hs_bycatch)) 0.2 else 0.5,
@@ -442,7 +467,8 @@ server <- function(input, output, session) {
     sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
     validate(need(length(sel) > 0, "Tick at least one rule."))
     B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
-    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close") %in% sel)) mmsy_ref()
+    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr") %in% sel)) mmsy_ref()
+    opc <- if (any(c("mclose_only", "mclose_hcr") %in% sel)) mclose_open()
     Em <- if (!is.null(ref)) matrix(ref$caps, n, sys$G, byrow = TRUE)
     run <- function(caps, hcr = NULL, open = 1) do.call(ms_simulate, c(list(sys, caps, input$hs_years, B_init = B0,
       E_init = E0, hcr = hcr, open = open, seed = 1, keep = "all"), sim_args()))
@@ -450,7 +476,8 @@ server <- function(input, output, session) {
     rule <- function(...) do.call(hcr_effort, c(list(sys), utils::modifyList(ra, list(...))))
     labs <- c(none = "No control", mmsy = "Fixed MMSY effort", hcr_w = "HCR value-weighted",
               hcr_min = "HCR weakest link", hcr_sq = "HCR value-weighted, full = status quo",
-              hcr_close = "HCR + closure")
+              hcr_close = "HCR + stock closure", mclose_only = "Metier closures only",
+              mclose_hcr = "HCR + metier closures")
     out <- list()
     withProgress(message = "Simulating", value = 0, {
       for (k in sel) {
@@ -462,7 +489,9 @@ server <- function(input, output, session) {
           hcr_min = run(Em, rule(aggregate = "min"), open = ref$open),
           hcr_sq = run(E0, rule(aggregate = "weighted")),
           hcr_close = { validate(need(input$hs_close_s != "none", "Choose a closure stock for 'HCR + closure'."))
-                        run(Em, rule(aggregate = "weighted", close = input$hs_close_s), open = ref$open) })
+                        run(Em, rule(aggregate = "weighted", close = input$hs_close_s), open = ref$open) },
+          mclose_only = run(matrix(cap(), n, sys$G, byrow = TRUE), open = opc),
+          mclose_hcr = run(Em, rule(aggregate = "weighted"), open = opc * matrix(ref$open, 12, sys$M, byrow = TRUE)))
       }
     })
     out

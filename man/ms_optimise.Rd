@@ -6,7 +6,7 @@
 \usage{
 ms_optimise(
   sys,
-  objective = c("yield", "revenue", "profit"),
+  objective = "yield",
   levers = names(sys$segments),
   fixed = NULL,
   ratio = rep(1/sys$G, sys$G),
@@ -23,7 +23,10 @@ ms_optimise(
 \arguments{
 \item{sys}{an \code{ms_system}.}
 
-\item{objective}{"yield", "revenue" or "profit".}
+\item{objective}{what is maximised: \code{"yield"} (total catch), \code{"revenue"},
+\code{"profit"}, or the catch of one or more stocks given by code or name
+(e.g. \code{"ANC"} to maximise the anchovy catch), always subject to the
+safeguard for the stocks in \code{species}.}
 
 \item{levers}{segments whose caps are optimised, or "total" for one global
 cap split in proportion \code{ratio} across all segments}
@@ -50,7 +53,8 @@ share of the total cap (e.g. 0.2). Applies to caps by segment only (with
 \item{...}{passed to ms_simulate() (gamma, behaviour, phi, open, ...)}
 }
 \value{
-list: caps, summary row, B/Bmsy and F/Fmsy, effort by segment and
+list: caps, summary row, B/Bmsy, F/Fmsy and catch by stock, the value
+of the objective, effort by segment and
 metier, the binding stock(s), and the search history
 }
 \description{

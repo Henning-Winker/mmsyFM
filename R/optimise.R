@@ -12,7 +12,10 @@
 #' behavioural fleet, which defeat gradient-based optimisers.
 #'
 #' @param sys     an `ms_system`.
-#' @param objective "yield", "revenue" or "profit".
+#' @param objective what is maximised: `"yield"` (total catch), `"revenue"`,
+#'   `"profit"`, or the catch of one or more stocks given by code or name
+#'   (e.g. `"ANC"` to maximise the anchovy catch), always subject to the
+#'   safeguard for the stocks in `species`.
 #' @param Bpa     safeguard relative to Bmsy.
 #' @param n,zoom  grid points per dimension and number of zoom steps.
 #' @param years   years to equilibrium.
@@ -27,15 +30,21 @@
 #'   share of the total cap (e.g. 0.2). Applies to caps by segment only (with
 #'   `levers = "total"` the split is fixed by `ratio`).
 #' @param ...     passed to ms_simulate() (gamma, behaviour, phi, open, ...)
-#' @return list: caps, summary row, B/Bmsy and F/Fmsy, effort by segment and
+#' @return list: caps, summary row, B/Bmsy, F/Fmsy and catch by stock, the value
+#'   of the objective, effort by segment and
 #'   metier, the binding stock(s), and the search history
 #' @export
-ms_optimise <- function(sys, objective = c("yield", "revenue", "profit"),
+ms_optimise <- function(sys, objective = "yield",
                         levers = names(sys$segments), fixed = NULL,
                         ratio = rep(1 / sys$G, sys$G), upper = 3000,
                         Bpa = 0.5, species = sys$species, min_share = 0, n = NULL, zoom = 5,
                         years = 150, ...) {
-  objective <- match.arg(objective)
+  # objective: total yield, revenue or profit, or the catch of one or more stocks
+  obj_stock <- NULL
+  if (!(length(objective) == 1 && objective %in% c("yield", "revenue", "profit"))) {
+    obj_stock <- match(objective, sys$code); obj_stock[is.na(obj_stock)] <- match(objective[is.na(obj_stock)], sys$species)
+    if (anyNA(obj_stock)) stop("`objective` must be \"yield\", \"revenue\", \"profit\" or stock code(s)/name(s)", call. = FALSE)
+  }
   seg <- names(sys$segments)
   # with one global cap the split across segments is fixed (ratio): a viability floor
   # cannot be met by optimising and would only admit zero effort, so it does not apply
@@ -61,12 +70,13 @@ ms_optimise <- function(sys, objective = c("yield", "revenue", "profit"),
     BB <- attr(sm, "BBmsy")
     feas <- apply(BB[, isp, drop = FALSE], 1, min) >= Bpa &
       apply(caps, 1, min) >= min_share * rowSums(caps)
-    val <- sm[[objective]]; val[!feas] <- -Inf
+    raw <- if (is.null(obj_stock)) sm[[objective]] else rowSums(attr(sm, "catch")[, obj_stock, drop = FALSE])
+    val <- raw; val[!feas] <- -Inf
     i <- which.max(val)
-    hist[[z]] <- data.frame(zoom = z, caps, value = sm[[objective]], feasible = feas)
+    hist[[z]] <- data.frame(zoom = z, caps, value = raw, feasible = feas)
     if (!is.finite(val[i])) break             # nothing feasible (e.g. free agent too large)
     best <- list(X = X[i, ], caps = caps[i, ], summary = sm[i, ], BBmsy = BB[i, ],
-                 FFmsy = attr(sm, "FFmsy")[i, ])
+                 FFmsy = attr(sm, "FFmsy")[i, ], catch = attr(sm, "catch")[i, ], value = raw[i])
     step <- (hi - lo) / (n - 1)
     lo <- pmax(0, X[i, ] - 2 * step); hi <- pmin(log1p(upper), X[i, ] + 2 * step)
   }
@@ -81,7 +91,9 @@ ms_optimise <- function(sys, objective = c("yield", "revenue", "profit"),
   best$E_seg_metier <- matrix(apply(x$E_seg_metier[, 1, , , drop = FALSE], c(3, 4), mean),
                               sys$G, sys$M, dimnames = list(seg, sys$metiers$name))
   best$binding <- sys$species[isp][abs(best$BBmsy[isp] - Bpa) < 0.05]
-  best$feasible <- TRUE; best$objective <- objective
+  best$feasible <- TRUE
+  best$objective <- if (is.null(obj_stock)) objective else paste("catch of", paste(sys$code[obj_stock], collapse = " + "))
+  best$objective_stocks <- if (is.null(obj_stock)) NULL else sys$code[obj_stock]
   best$history <- do.call(rbind, hist)
   best
 }
