@@ -166,6 +166,47 @@ hcr_effort <- function(sys, Btrig = 0.5, Blim = 0.25, assess_cv = 0.2, assess_rh
 }
 
 
+#' Default assessment strategies: indicator species, complexes and assignment
+#'
+#' Starting points for the `assessed`, `complexes` and `assign` arguments of
+#' [hcr_effort()], derived from the system:
+#'
+#' * `indicators`: one indicator species per segment, the stock of highest
+#'   potential value to that segment (catchability on its metiers x price x
+#'   K) among the stocks it catches as a main fishery, without repeats;
+#' * `complexes`: the species `group`s of the system with two or more
+#'   stocks (stocks alone in their group stay single units);
+#' * `assign`: each stock assigned to the segment for whose fishery it
+#'   matters most (its largest share of the segment's potential value), its
+#'   "main" fleet.
+#'
+#' @param sys an `ms_system`.
+#' @param own_q as in [hcr_effort()].
+#' @return A list with `indicators` (stock names), `complexes` (named list of
+#'   stock names) and `assign` (named list segment -> stock names).
+#' @export
+#' @examples
+#' ms_assessment_presets(atlantic_system())
+ms_assessment_presets <- function(sys, own_q = 0.5) {
+  seg <- names(sys$segments); M <- sys$M
+  qmax <- apply(sys$Q, 2, max)
+  acc <- lapply(seq_len(sys$G), function(g) if (sys$loyalty[g] > 0) sys$home[g, ] > 0 else rep(TRUE, M))
+  val <- sapply(seq_len(sys$G), function(g) colSums(sys$Q[acc[[g]], , drop = FALSE]) * sys$price * sys$K)
+  own <- sapply(seq_len(sys$G), function(g) apply(sys$Q[acc[[g]], , drop = FALSE], 2, max) >= own_q * qmax)
+  val <- matrix(val, sys$S, sys$G); own <- matrix(own, sys$S, sys$G)
+  ind <- character(0)
+  for (g in order(-colSums(val))) {                       # most valuable segment picks first
+    v <- val[, g]; v[!own[, g] | sys$species %in% ind] <- -Inf
+    if (any(is.finite(v))) ind <- c(ind, sys$species[which.max(v)])
+  }
+  grp <- split(sys$species, factor(sys$group, unique(sys$group)))
+  main <- seg[apply(sweep(val, 2, pmax(colSums(val), 1e-12), "/"), 1, which.max)]
+  list(indicators = sys$species[sys$species %in% ind],
+       complexes = grp[lengths(grp) > 1],
+       assign = lapply(stats::setNames(seg, seg), function(g) sys$species[main == g]))
+}
+
+
 #' Process SD by productivity: a power law in r through two anchors
 #'
 #' sd(r) = sd1 * (r / r1)^p with p = log(sd2 / sd1) / log(r2 / r1).

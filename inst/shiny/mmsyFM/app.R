@@ -39,7 +39,7 @@ tips <- list(
   hs_btrig = "Below this B/Bmsy a segment's days are cut: full days at the trigger, a linear ramp down to the minimum effort at Blim (0.25 Bmsy). Default 0.5 Bmsy (the trigger at Bpa, as in ICES and GFCM advice).",
   hs_btrig_close = "Used with a closure stock. The metiers that drive that stock are closed in proportion to how depleted it is: fully closed at or below Blim (0.25 Bmsy), open for part of the time (e.g. a shorter season) between Blim and this trigger, and fully open at or above it. Default 1: the closure is lifted once the stock is rebuilt to Bmsy.",
   hs_emin = "The rule never sets a segment below this share of its full effort (at and below Blim): a minimum effort instead of a closure. F scales with days, so 0.1 puts about 0.1 x the F of the full effort on each stock. 0 allows a full closure.",
-  hs_rules = "Each ticked rule is a run with the same random draws (process, assessment and implementation error), shown in its own colour.<br><b>No control</b>: the fleet at capacity, limited only by profitability.<br><b>Fixed MMSY effort</b>: each segment capped at its safeguarded-MMSY days, no feedback.<br><b>HCR</b>: each segment's days ramp from the minimum effort at Blim to its full effort at the trigger. <b>Value-weighted</b>: the status is the mean B/Bmsy of the stocks the segment fishes, weighted by their value to it. <b>Weakest link</b>: the most depleted stock decides (most precautionary). <b>Full effort</b> = the MMSY days, or today's days. <b>+ closure</b>: the stock chosen below is protected by closing the metiers that drive it.",
+  hs_rules = "Each ticked rule is a run with the same random draws (process, assessment and implementation error), shown in its own colour.<br><b>No control</b>: the fleet at capacity, limited only by profitability.<br><b>Fixed MMSY effort</b>: each segment capped at its safeguarded-MMSY days, no feedback.<br><b>HCR</b>: each segment's days ramp from the minimum effort at Blim to its full effort at the trigger. <b>Value-weighted</b>: the status is the mean B/Bmsy of the stocks the segment fishes, weighted by their value to it. <b>Weakest link</b>: the most depleted stock decides (most precautionary). <b>Full effort</b> = the MMSY days, or today's days. <b>+ closure</b>: the stock chosen below is protected by closing the metiers that drive it. <b>Indicator species / species complexes / nominal assignment</b>: the value-weighted HCR with a different assessment (set under Assessment).",
   hs_trig_seg = "Set a different trigger for each segment, e.g. a higher trigger for the purse seine fishing short-lived small pelagics.",
   hs_bycatch = "Off (default): a segment answers only for stocks it catches as a main fishery (catchability at least half the stock's highest). On: by-catch counts too, so more stocks can cut a segment's days.",
   hs_qstat = "Statistic shown for every stock (rows) and rule (columns). Colours rank the rules within each stock, or use the risk limit for probabilities of being below Bpa or Blim.",
@@ -68,6 +68,12 @@ tips <- list(
   open_m = "Untick to close a metier all year. Its days move to the open metiers by profit (displacement).",
   yc_close_m = "Used only by the 'Profit-seeking + closure' curve: this one metier is closed all year and its days move to the other metiers. The other curves keep every metier open.",
   opt_closed = "Metiers kept closed all year during the optimisation, e.g. a protected reef.",
+  hs_assessment = "What the rule can see. <b>Indicator species</b>: only the listed stocks are assessed; a segment answers only for the indicators it fishes, and a segment that fishes none is not constrained. <b>Species complexes</b>: the stocks of each complex are assessed as one unit; stocks in no complex are assessed alone. <b>Nominal assignment</b>: every stock is assessed, but each is managed through one segment only; the other segments are not cut for it.",
+  hs_assess_agg = "How these rules form a fleet's status from the units it answers for. Compare with the all-stocks rule of the same kind ('HCR, weakest link' or 'HCR, value-weighted'). Differences show most with the weakest link: a complex or a missing assessment can hide a depleted stock. With value-weighted status the healthy, valuable stocks dominate and the rule may rarely cut effort.",
+  hs_ind = "The assessed stocks. Default: one per segment, the stock of highest value to that segment.",
+  hs_cplx = "Stocks assessed together as one unit. Default: the species groups of the system. A stock may belong to one complex only; stocks left out are assessed alone.",
+  hs_cindex = "<b>Pooled biomass</b>: the complex status is the summed B over the summed Bmsy, as from a production model fitted to pooled catch and survey biomass; large stocks dominate.<br><b>Pooled CPUE</b>: an index of the pooled catch rate, so the most catchable stocks dominate.",
+  hs_asg = "The segment through which each stock is managed. Default: the segment for whose fishery the stock matters most.",
   hs_close_s = "A choke stock protected by a closure of the metiers that drive it. 'none' = effort rule only.")
 info <- function(id, label) tagList(label, tags$span(class = "info", `data-toggle` = "tooltip",
   `data-placement` = "right", `data-html` = "true", title = tips[[id]], HTML("&#9432;")))
@@ -179,7 +185,9 @@ ui <- navbarPage(
           c("No control (status-quo days)" = "none", "Fixed MMSY effort" = "mmsy",
             "HCR, value-weighted (full = MMSY)" = "hcr_w", "HCR, weakest link (full = MMSY)" = "hcr_min",
             "HCR, value-weighted (full = status quo)" = "hcr_sq", "HCR + closure for a stock (full = MMSY)" = "hcr_close",
-            "Metier closures only" = "mclose_only", "HCR + metier closures (full = MMSY)" = "mclose_hcr"),
+            "Metier closures only" = "mclose_only", "HCR + metier closures (full = MMSY)" = "mclose_hcr",
+            "HCR, indicator species (full = MMSY)" = "hcr_ind", "HCR, species complexes (full = MMSY)" = "hcr_cplx",
+            "HCR, nominal assignment (full = MMSY)" = "hcr_asg"),
           c("none", "mmsy", "hcr_w", "hcr_min")),
         p(class = "note", "Full effort = the safeguarded-MMSY days from tab 4, with its settings and closures (computed here with defaults if tab 4 has not been run: 1-3 min)."),
         uiOutput("hs_ref"),
@@ -197,6 +205,16 @@ ui <- navbarPage(
           sliderInput("hs_btrig_close", info("hs_btrig_close", "Closure trigger (B/Bmsy)"), 0.3, 2, 1, 0.05)),
         sliderInput("hs_emin", info("hs_emin", "Minimum effort (share of full effort)"), 0, 0.5, 0.1, 0.05),
         sliderInput("hs_maxchange", info("hs_maxchange", "Maximum annual change in days (1 = no limit)"), 0.05, 1, 0.2, 0.05),
+        conditionalPanel("input.hs_rules && (input.hs_rules.indexOf('hcr_ind') > -1 || input.hs_rules.indexOf('hcr_cplx') > -1 || input.hs_rules.indexOf('hcr_asg') > -1)",
+          h5(info("hs_assessment", "Assessment")),
+          p(class = "note", "Used by the indicator, complex and assignment rules; the other HCRs assess every stock separately. Defaults come from the system and can be edited."),
+          radioButtons("hs_assess_agg", info("hs_assess_agg", "Fleet status from its stocks"),
+                       c("Weakest link" = "min", "Value-weighted" = "weighted"), inline = TRUE),
+          conditionalPanel("input.hs_rules.indexOf('hcr_ind') > -1", uiOutput("hs_ind_ui")),
+          conditionalPanel("input.hs_rules.indexOf('hcr_cplx') > -1", uiOutput("hs_cplx_ui"),
+            radioButtons("hs_cindex", info("hs_cindex", "Complex index"),
+                         c("Pooled biomass" = "biomass", "Pooled CPUE" = "cpue"), inline = TRUE)),
+          conditionalPanel("input.hs_rules.indexOf('hcr_asg') > -1", uiOutput("hs_asg_ui"))),
         h5("Uncertainty"),
         sliderInput("hs_lag", info("hs_lag", "Data lag (years)"), 0, 3, 2, 1),
         sliderInput("hs_assess", info("hs_assess", "Assessment error CV"), 0, 0.5, 0.2, 0.05),
@@ -426,6 +444,28 @@ server <- function(input, output, session) {
     validate(need(length(input$hs_mclose) > 0, "Tick at least one metier to close for the metier-closure rules."))
     ms_closure(rv$sys, input$hs_mclose, seq(input$hs_mclose_months[1], input$hs_mclose_months[2]), input$hs_mclose_share)
   }
+  presets <- reactive(ms_assessment_presets(req(rv$sys)))
+  output$hs_ind_ui <- renderUI(selectInput("hs_ind", info("hs_ind", "Indicator species"), rv$sys$species,
+    presets()$indicators, multiple = TRUE))
+  output$hs_cplx_ui <- renderUI({ cx <- presets()$complexes
+    nm <- c(names(cx), paste("complex", length(cx) + 1))
+    tagList(tags$label(info("hs_cplx", "Species complexes")),
+      lapply(seq_along(nm), function(i) selectInput(paste0("cplx_", i), nm[i], rv$sys$species,
+        if (i <= length(cx)) cx[[i]] else NULL, multiple = TRUE))) })
+  output$hs_asg_ui <- renderUI({ a <- presets()$assign
+    tagList(tags$label(info("hs_asg", "Managed through")),
+      lapply(names(a), function(g) selectInput(paste0("asg_", g), g, rv$sys$species, a[[g]], multiple = TRUE))) })
+  complexes_in <- function() {
+    cx <- presets()$complexes; nm <- c(names(cx), paste("complex", length(cx) + 1))
+    out <- stats::setNames(lapply(seq_along(nm), function(i) input[[paste0("cplx_", i)]] %||%
+      (if (i <= length(cx)) cx[[i]])), nm)
+    out <- out[lengths(out) > 0]
+    validate(need(length(out) > 0, "Define at least one species complex."),
+             need(!anyDuplicated(unlist(out)), "A stock can belong to one complex only."))
+    out
+  }
+  assign_in <- function() { a <- presets()$assign
+    stats::setNames(lapply(names(a), function(g) input[[paste0("asg_", g)]] %||% a[[g]]), names(a)) }
   rule_args <- reactive(list(Btrig = btrig(), Btrig_close = input$hs_btrig_close,
                              close = if (input$hs_close_s == "none") NULL else input$hs_close_s,
                              assess_cv = input$hs_assess, own_q = if (isTRUE(input$hs_bycatch)) 0.2 else 0.5,
@@ -467,7 +507,8 @@ server <- function(input, output, session) {
     sys <- rv$sys; sq <- rv$sq; n <- input$hs_nsim; sel <- input$hs_rules
     validate(need(length(sel) > 0, "Tick at least one rule."))
     B0 <- matrix(sq$B, n, sys$S, byrow = TRUE); E0 <- matrix(sq$E_seg, n, sys$G, byrow = TRUE)
-    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr") %in% sel)) mmsy_ref()
+    ref <- if (any(c("mmsy", "hcr_w", "hcr_min", "hcr_close", "mclose_hcr", "hcr_ind", "hcr_cplx", "hcr_asg") %in% sel)) mmsy_ref()
+    if ("hcr_ind" %in% sel) validate(need(length(input$hs_ind %||% presets()$indicators) > 0, "Choose at least one indicator species."))
     opc <- if (any(c("mclose_only", "mclose_hcr") %in% sel)) mclose_open()
     Em <- if (!is.null(ref)) matrix(ref$caps, n, sys$G, byrow = TRUE)
     run <- function(caps, hcr = NULL, open = 1) do.call(ms_simulate, c(list(sys, caps, input$hs_years, B_init = B0,
@@ -477,7 +518,8 @@ server <- function(input, output, session) {
     labs <- c(none = "No control", mmsy = "Fixed MMSY effort", hcr_w = "HCR value-weighted",
               hcr_min = "HCR weakest link", hcr_sq = "HCR value-weighted, full = status quo",
               hcr_close = "HCR + stock closure", mclose_only = "Metier closures only",
-              mclose_hcr = "HCR + metier closures")
+              mclose_hcr = "HCR + metier closures", hcr_ind = "HCR indicator species",
+              hcr_cplx = "HCR species complexes", hcr_asg = "HCR nominal assignment")
     out <- list()
     withProgress(message = "Simulating", value = 0, {
       for (k in sel) {
@@ -491,7 +533,11 @@ server <- function(input, output, session) {
           hcr_close = { validate(need(input$hs_close_s != "none", "Choose a closure stock for 'HCR + closure'."))
                         run(Em, rule(aggregate = "weighted", close = input$hs_close_s), open = ref$open) },
           mclose_only = run(matrix(cap(), n, sys$G, byrow = TRUE), open = opc),
-          mclose_hcr = run(Em, rule(aggregate = "weighted"), open = opc * matrix(ref$open, 12, sys$M, byrow = TRUE)))
+          mclose_hcr = run(Em, rule(aggregate = "weighted"), open = opc * matrix(ref$open, 12, sys$M, byrow = TRUE)),
+          hcr_ind = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", assessed = input$hs_ind %||% presets()$indicators), open = ref$open),
+          hcr_cplx = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", complexes = complexes_in(), complex_index = input$hs_cindex %||% "biomass"),
+                         open = ref$open),
+          hcr_asg = run(Em, rule(aggregate = input$hs_assess_agg %||% "min", assign = assign_in()), open = ref$open))
       }
     })
     out
